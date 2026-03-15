@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "UKnHfquuWVs=",
+  "success": true,
+  "projectFilePath": "E:\\Dev\\AFati\\ArchitectusFati\\Backend\\ArchitectusFati.Api\\ArchitectusFati.Api.csproj",
+  "expectedPackageFiles": [
+    "e:\\Dev\\AFati\\ArchitectusFati\\.dotnet\\.nuget\\packages\\npgsql\\10.0.1\\npgsql.10.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}
