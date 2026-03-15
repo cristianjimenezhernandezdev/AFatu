@@ -144,6 +144,40 @@ public static class MapCardRuntimeFactory
         };
     }
 
+    public static MapCardData CreateRuntimeCardFromRemote(RemoteMapCardDefinition definition, GameObject enemyTemplate)
+    {
+        if (definition == null || string.IsNullOrWhiteSpace(definition.cardId))
+            return null;
+
+        GameObject[] enemyPool = enemyTemplate == null
+            ? System.Array.Empty<GameObject>()
+            : new[] { enemyTemplate };
+
+        Color floorColor = ParseColorOrDefault(definition.floorColorHex, Color.gray);
+        Color wallColor = ParseColorOrDefault(definition.wallColorHex, Color.black);
+        int width = Mathf.Max(5, definition.segmentWidth);
+        int height = Mathf.Max(5, definition.segmentHeight);
+
+        MapCardData card = CreateRuntimeCard(
+            definition.cardId,
+            string.IsNullOrWhiteSpace(definition.displayName) ? definition.cardId : definition.displayName,
+            definition.description ?? string.Empty,
+            definition.startsUnlocked,
+            string.IsNullOrWhiteSpace(definition.biomeId) ? "unknown" : definition.biomeId,
+            floorColor,
+            wallColor,
+            width,
+            height,
+            Mathf.Clamp01(definition.obstacleChance),
+            Mathf.Clamp01(definition.enemyChance),
+            enemyPool
+        );
+
+        card.entryX = Mathf.Clamp(definition.entryX, 1, Mathf.Max(1, width - 2));
+        card.exitX = Mathf.Clamp(definition.exitX, 1, Mathf.Max(1, width - 2));
+        return card;
+    }
+
     private static MapCardData CreateRuntimeCard(
         string id,
         string title,
@@ -202,5 +236,13 @@ public static class MapCardRuntimeFactory
 
         string sanitized = builder.ToString().Trim('_');
         return string.IsNullOrEmpty(sanitized) ? "card" : sanitized;
+    }
+
+    private static Color ParseColorOrDefault(string htmlColor, Color fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(htmlColor) && ColorUtility.TryParseHtmlString(htmlColor, out Color parsedColor))
+            return parsedColor;
+
+        return fallback;
     }
 }

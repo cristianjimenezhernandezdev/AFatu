@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -35,6 +36,12 @@ public class RunManager : MonoBehaviour
     [SerializeField] private bool useBuiltInUi = true;
     [SerializeField] private bool resetLocalProgressOnPlay;
 
+    [Header("Remote API")]
+    [SerializeField] private bool useRemoteApi;
+    [SerializeField] private string apiBaseUrl = "http://localhost:5123";
+    [SerializeField] private string remotePlayerId = "local-player";
+    [SerializeField][Min(1)] private int apiTimeoutSeconds = 10;
+
     [Header("Debug")]
     [SerializeField] private bool autoPickFirstCardInConsole;
 
@@ -50,11 +57,17 @@ public class RunManager : MonoBehaviour
     private RunState currentState = RunState.None;
     private LocalPlayerProgress progressData;
     private GameObject runtimeEnemyTemplateInstance;
+    private RemoteGameApiClient remoteApiClient;
+    private RemoteMapCardDefinition[] remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
+    private RemotePlayerProgress remoteProgressSnapshot;
+    private bool remoteSyncInFlight;
+    private bool remoteSyncQueued;
 
     public IReadOnlyList<MapCardData> CurrentChoices => currentChoices;
     public bool WaitingForCardChoice => waitingForCardChoice;
     public RunState CurrentState => currentState;
     public bool AllowsActorTurns => currentState == RunState.ExploringSegment;
+    bool IsRemoteApiConfigured => useRemoteApi && !string.IsNullOrWhiteSpace(apiBaseUrl) && !string.IsNullOrWhiteSpace(remotePlayerId);
 
     void Awake()
     {
@@ -67,7 +80,7 @@ public class RunManager : MonoBehaviour
         Instance = this;
     }
 
-    void Start()
+    IEnumerator Start()
     {
         if (worldGrid == null)
             worldGrid = FindFirstObjectByType<WorldGrid>();
@@ -75,6 +88,7 @@ public class RunManager : MonoBehaviour
         if (player == null)
             player = FindFirstObjectByType<PlayerGridMovement>();
 
+        yield return BootstrapRemoteDataIfNeeded();
         BootstrapLocalMode();
         StartRun();
     }
@@ -252,6 +266,11 @@ public class RunManager : MonoBehaviour
 
         RegisterCard(startingCard);
 
+        foreach (RemoteMapCardDefinition remoteCard in remoteCardDefinitions)
+        {
+            RegisterCard(MapCardRuntimeFactory.CreateRuntimeCardFromRemote(remoteCard, runtimeEnemyTemplateInstance));
+        }
+
         foreach (MapCardData configuredCard in configuredUnlockedCards)
         {
             RegisterCard(configuredCard);
@@ -304,7 +323,7 @@ public class RunManager : MonoBehaviour
 
     void LoadOrCreateProgress(List<MapCardData> configuredUnlockedCards)
     {
-        progressData = LocalProgressStore.Load(GetProgressFilePath()) ?? new LocalPlayerProgress();
+        progressData = GetInitialProgressSnapshot();
         progressData.unlockedCardIds ??= new List<string>();
 
         bool hasValidUnlock = false;
@@ -606,6 +625,7 @@ public class RunManager : MonoBehaviour
             return;
 
         LocalProgressStore.Save(GetProgressFilePath(), progressData);
+        QueueRemoteProgressSync();
     }
 
     void DeleteSavedProgress()
@@ -621,8 +641,110 @@ public class RunManager : MonoBehaviour
     {
         currentState = newState;
     }
-}
 
+    IEnumerator BootstrapRemoteDataIfNeeded()
+    {
+        remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
+        remoteProgressSnapshot = null;
+
+        if (!useRemoteApi)
+            yield break;
+
+        if (!IsRemoteApiConfigured)
+        {
+            Debug.LogWarning("Remote API activada pero falta apiBaseUrl o remotePlayerId. Es fara servir el mode local.");
+            yield break;
+        }
+
+        remoteApiClient = new RemoteGameApiClient(apiBaseUrl, apiTimeoutSeconds);
+
+        string cardsError = null;
+        yield return remoteApiClient.FetchCards(
+            response =>
+            {
+                remoteCardDefinitions = response?.cards ?? System.Array.Empty<RemoteMapCardDefinition>();
+            },
+            error => cardsError = error);
+
+        if (!string.IsNullOrEmpty(cardsError))
+        {
+            Debug.LogWarning($"No s'han pogut carregar les cartes remotes: {cardsError}");
+            remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
+        }
+        else if (remoteCardDefinitions.Length > 0)
+        {
+            Debug.Log($"Carregades {remoteCardDefinitions.Length} cartes des de l'API.");
+        }
+
+        string progressError = null;
+        yield return remoteApiClient.FetchPlayerProgress(
+            remotePlayerId,
+            response =>
+            {
+                remoteProgressSnapshot = response?.progress;
+            },
+            error => progressError = error);
+
+        if (!string.IsNullOrEmpty(progressError))
+        {
+            Debug.LogWarning($"No s'ha pogut carregar el progres remot: {progressError}");
+        }
+        else if (remoteProgressSnapshot != null)
+        {
+            Debug.Log("Progres remot carregat correctament.");
+        }
+    }
+
+    LocalPlayerProgress GetInitialProgressSnapshot()
+    {
+        if (remoteProgressSnapshot != null)
+            return remoteProgressSnapshot.ToLocalProgress();
+
+        return LocalProgressStore.Load(GetProgressFilePath()) ?? new LocalPlayerProgress();
+    }
+
+    void QueueRemoteProgressSync()
+    {
+        if (!IsRemoteApiConfigured || remoteApiClient == null || progressData == null)
+            return;
+
+        if (remoteSyncInFlight)
+        {
+            remoteSyncQueued = true;
+            return;
+        }
+
+        StartCoroutine(SyncRemoteProgressRoutine());
+    }
+
+    IEnumerator SyncRemoteProgressRoutine()
+    {
+        do
+        {
+            remoteSyncQueued = false;
+            remoteSyncInFlight = true;
+
+            string syncError = null;
+            yield return remoteApiClient.UpsertPlayerProgress(
+                remotePlayerId,
+                progressData,
+                response =>
+                {
+                    remoteProgressSnapshot = response?.progress ?? RemotePlayerProgress.FromLocal(progressData);
+                },
+                error => syncError = error);
+
+            remoteSyncInFlight = false;
+
+            if (!string.IsNullOrEmpty(syncError))
+            {
+                Debug.LogWarning($"No s'ha pogut sincronitzar el progres remot: {syncError}");
+                yield break;
+            }
+        }
+        while (remoteSyncQueued);
+    }
+}
 [System.Serializable]
 public class LocalPlayerProgress
 {
@@ -677,3 +799,7 @@ public static class LocalProgressStore
         }
     }
 }
+
+
+
+

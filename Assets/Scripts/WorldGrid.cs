@@ -154,6 +154,11 @@ public class WorldGrid : MonoBehaviour
                 enemy.gridPosition = pos;
                 enemyObject.transform.position = GridToWorld(pos);
                 RegisterEnemy(enemy);
+
+                if (!enemyObject.activeSelf)
+                {
+                    enemyObject.SetActive(true);
+                }
             }
         }
     }
