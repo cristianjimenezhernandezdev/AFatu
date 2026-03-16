@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class WorldGrid : MonoBehaviour
@@ -11,23 +12,23 @@ public class WorldGrid : MonoBehaviour
     [SerializeField] private GoalTile goalTile;
 
     private GameObject[,] cells;
-    private readonly HashSet<Vector2Int> walls = new();
-    private readonly Dictionary<Vector2Int, Enemy> enemies = new();
+    private readonly HashSet<Vector2Int> walls = new HashSet<Vector2Int>();
+    private readonly Dictionary<Vector2Int, Enemy> enemies = new Dictionary<Vector2Int, Enemy>();
+    private readonly Dictionary<Vector2Int, Chest> chests = new Dictionary<Vector2Int, Chest>();
     private Sprite cachedCellSprite;
     private Transform segmentRoot;
-
-    private int width;
-    private int height;
-    private MapCardData currentCard;
+    private SegmentRuntimeData currentSegment;
 
     public static WorldGrid Instance { get; private set; }
 
-    public int Width => width;
-    public int Height => height;
+    public int Width => currentSegment?.segment?.segmentWidth ?? 0;
+    public int Height => currentSegment?.segment?.segmentHeight ?? 0;
     public float CellSize => cellSize;
-    public MapCardData CurrentCard => currentCard;
-    public Vector2Int EntryPosition => currentCard == null ? Vector2Int.zero : new Vector2Int(currentCard.entryX, height / 2);
-    public Vector2Int ExitPosition => currentCard == null ? Vector2Int.zero : new Vector2Int(currentCard.exitX, height / 2);
+    public SegmentRuntimeData CurrentSegment => currentSegment;
+    public Vector2Int EntryPosition => currentSegment == null ? Vector2Int.zero : currentSegment.EntryPosition;
+    public Vector2Int ExitPosition => currentSegment == null ? Vector2Int.zero : currentSegment.ExitPosition;
+    public IReadOnlyList<Enemy> ActiveEnemies => enemies.Values.Where(enemy => enemy != null && enemy.IsAlive()).ToArray();
+    public IReadOnlyList<Chest> ActiveChests => chests.Values.Where(chest => chest != null && !chest.IsOpened).ToArray();
 
     void Awake()
     {
@@ -41,134 +42,132 @@ public class WorldGrid : MonoBehaviour
         EnsureSegmentRoot();
     }
 
-    public void GenerateSegment(MapCardData card)
+    public void GenerateSegment(SegmentRuntimeData runtime, GameObject enemyTemplate)
     {
-        if (card == null)
+        if (runtime == null || runtime.segment == null)
         {
-            Debug.LogError("WorldGrid.GenerateSegment ha rebut una carta null.");
+            Debug.LogError("WorldGrid.GenerateSegment ha rebut un segment invalid.");
             return;
         }
 
-        currentCard = card;
-        width = card.segmentWidth;
-        height = card.segmentHeight;
-
+        currentSegment = runtime;
         ClearCurrentSegment();
 
-        cells = new GameObject[width, height];
+        cells = new GameObject[Width, Height];
         walls.Clear();
         enemies.Clear();
+        chests.Clear();
 
-        GenerateCells(card);
-        GenerateWalls(card);
-        GenerateEnemies(card);
-        PlaceGoal(card);
+        GenerateCells(runtime);
+        ApplyWalls(runtime.wallPositions);
+        GenerateEnemies(runtime, enemyTemplate);
+        GenerateChests(runtime);
+        PlaceGoal(runtime);
     }
 
-    void GenerateCells(MapCardData card)
+    private void GenerateCells(SegmentRuntimeData runtime)
     {
         Sprite squareSprite = GetOrCreateCellSprite();
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < Width; x++)
         {
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < Height; y++)
             {
-                GameObject cell = new($"Cell_{x}_{y}");
+                GameObject cell = new GameObject($"Cell_{x}_{y}");
                 cell.transform.SetParent(segmentRoot);
                 cell.transform.position = GridToWorld(new Vector2Int(x, y));
 
                 SpriteRenderer spriteRenderer = cell.AddComponent<SpriteRenderer>();
                 spriteRenderer.sprite = squareSprite;
-                spriteRenderer.color = card.floorColor;
                 spriteRenderer.sortingOrder = 0;
 
+                ProceduralEnvironmentFactory.ApplyCellVisual(cell, spriteRenderer, runtime.card.biomeId, runtime.floorColor, runtime.wallColor, new Vector2Int(x, y), false);
                 cells[x, y] = cell;
             }
         }
     }
 
-    void GenerateWalls(MapCardData card)
+    private void ApplyWalls(IReadOnlyList<Vector2Int> wallPositions)
     {
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                Vector2Int pos = new(x, y);
-
-                bool border =
-                    x == 0 || y == 0 ||
-                    x == width - 1 || y == height - 1;
-
-                if (border)
-                {
-                    AddWall(pos);
-                    continue;
-                }
-
-                bool reservedLane =
-                    (x == card.entryX && y == height / 2) ||
-                    (x == card.exitX && y == height / 2);
-
-                if (reservedLane)
-                    continue;
-
-                if (UnityEngine.Random.value < card.obstacleChance)
-                {
-                    AddWall(pos);
-                }
-            }
-        }
-    }
-
-    void GenerateEnemies(MapCardData card)
-    {
-        if (card.possibleEnemyPrefabs == null || card.possibleEnemyPrefabs.Length == 0)
+        if (wallPositions == null)
             return;
 
-        for (int x = 1; x < width - 1; x++)
+        for (int i = 0; i < wallPositions.Count; i++)
+            SetWall(wallPositions[i], true);
+    }
+
+    private void GenerateEnemies(SegmentRuntimeData runtime, GameObject enemyTemplate)
+    {
+        if (runtime.enemySpawns == null || runtime.enemySpawns.Count == 0)
+            return;
+
+        for (int i = 0; i < runtime.enemySpawns.Count; i++)
         {
-            for (int y = 1; y < height - 1; y++)
+            GeneratedEnemySpawnData spawn = runtime.enemySpawns[i];
+            GameObject enemyObject = enemyTemplate != null ? Instantiate(enemyTemplate, segmentRoot) : CreateFallbackEnemyObject();
+            enemyObject.name = $"Enemy_{spawn.archetype.enemyId}_{i}";
+
+            Enemy enemy = enemyObject.GetComponent<Enemy>();
+            if (enemy == null)
             {
-                Vector2Int pos = new(x, y);
-
-                if (!IsWalkable(pos))
-                    continue;
-
-                if (UnityEngine.Random.value > card.enemyChance)
-                    continue;
-
-                GameObject prefab = card.possibleEnemyPrefabs[UnityEngine.Random.Range(0, card.possibleEnemyPrefabs.Length)];
-                if (prefab == null)
-                    continue;
-
-                GameObject enemyObject = Instantiate(prefab, segmentRoot);
-                Enemy enemy = enemyObject.GetComponent<Enemy>();
-
-                if (enemy == null)
-                {
-                    Debug.LogError("El prefab d'enemic no te component Enemy.");
-                    Destroy(enemyObject);
-                    continue;
-                }
-
-                enemy.gridPosition = pos;
-                enemyObject.transform.position = GridToWorld(pos);
-                RegisterEnemy(enemy);
-
-                if (!enemyObject.activeSelf)
-                {
-                    enemyObject.SetActive(true);
-                }
+                Destroy(enemyObject);
+                continue;
             }
+
+            enemy.ConfigureFromSpawn(spawn);
+            RegisterEnemy(enemy);
+            enemyObject.SetActive(true);
         }
     }
 
-    void PlaceGoal(MapCardData card)
+    private void GenerateChests(SegmentRuntimeData runtime)
+    {
+        if (runtime.chestSpawns == null || runtime.chestSpawns.Count == 0)
+            return;
+
+        for (int i = 0; i < runtime.chestSpawns.Count; i++)
+        {
+            GameObject chestObject = CreateFallbackChestObject();
+            chestObject.transform.SetParent(segmentRoot, false);
+            chestObject.name = $"Chest_{runtime.chestSpawns[i].reward.chestTier}_{i}";
+
+            Chest chest = chestObject.GetComponent<Chest>();
+            chest.Configure(runtime.chestSpawns[i]);
+            RegisterChest(chest);
+            chestObject.SetActive(true);
+        }
+    }
+
+    private GameObject CreateFallbackEnemyObject()
+    {
+        GameObject enemyObject = new GameObject("RuntimeEnemy");
+        enemyObject.transform.SetParent(segmentRoot);
+        SpriteRenderer renderer = enemyObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
+        renderer.sortingOrder = 10;
+        enemyObject.AddComponent<Enemy>();
+        enemyObject.AddComponent<EnemyGridMovement>();
+        enemyObject.AddComponent<ProceduralEnemyRenderer>();
+        enemyObject.SetActive(false);
+        return enemyObject;
+    }
+
+    private GameObject CreateFallbackChestObject()
+    {
+        GameObject chestObject = new GameObject("RuntimeChest");
+        SpriteRenderer renderer = chestObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
+        renderer.sortingOrder = 9;
+        chestObject.AddComponent<Chest>();
+        chestObject.AddComponent<ProceduralChestRenderer>();
+        chestObject.SetActive(false);
+        return chestObject;
+    }
+
+    private void PlaceGoal(SegmentRuntimeData runtime)
     {
         if (goalTile == null)
-        {
             goalTile = FindFirstObjectByType<GoalTile>();
-        }
 
         if (goalTile == null)
         {
@@ -176,39 +175,29 @@ public class WorldGrid : MonoBehaviour
             return;
         }
 
-        SetWall(ExitPosition, false);
-        goalTile.SetGridPosition(new Vector2Int(card.exitX, height / 2));
+        SetWall(runtime.ExitPosition, false);
+        goalTile.SetGridPosition(runtime.ExitPosition);
     }
 
-    void ClearCurrentSegment()
+    private void ClearCurrentSegment()
     {
         EnsureSegmentRoot();
 
         for (int i = segmentRoot.childCount - 1; i >= 0; i--)
         {
             Transform child = segmentRoot.GetChild(i);
-            child.gameObject.SetActive(false);
             Destroy(child.gameObject);
-        }
-
-        Enemy[] existingEnemies = FindObjectsByType<Enemy>(FindObjectsSortMode.None);
-        foreach (Enemy enemy in existingEnemies)
-        {
-            if (enemy == null || enemy.transform.IsChildOf(segmentRoot))
-                continue;
-
-            enemy.gameObject.SetActive(false);
-            Destroy(enemy.gameObject);
         }
 
         cells = null;
         walls.Clear();
         enemies.Clear();
+        chests.Clear();
     }
 
     public bool IsInsideGrid(Vector2Int pos)
     {
-        return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height;
+        return pos.x >= 0 && pos.x < Width && pos.y >= 0 && pos.y < Height;
     }
 
     public bool IsWalkable(Vector2Int pos)
@@ -223,12 +212,54 @@ public class WorldGrid : MonoBehaviour
 
     public bool HasEnemyAt(Vector2Int pos)
     {
-        return enemies.TryGetValue(pos, out Enemy enemy) && enemy != null;
+        return enemies.TryGetValue(pos, out Enemy enemy) && enemy != null && enemy.IsAlive();
     }
 
     public Enemy GetEnemyAt(Vector2Int pos)
     {
-        return enemies.TryGetValue(pos, out Enemy enemy) ? enemy : null;
+        return enemies.TryGetValue(pos, out Enemy enemy) && enemy != null && enemy.IsAlive() ? enemy : null;
+    }
+
+    public bool HasChestAt(Vector2Int pos)
+    {
+        return chests.TryGetValue(pos, out Chest chest) && chest != null && !chest.IsOpened;
+    }
+
+    public Chest GetChestAt(Vector2Int pos)
+    {
+        return chests.TryGetValue(pos, out Chest chest) && chest != null && !chest.IsOpened ? chest : null;
+    }
+
+    public IReadOnlyList<Enemy> GetEnemiesInRadius(Vector2Int center, float radius)
+    {
+        List<Enemy> result = new List<Enemy>();
+        foreach (Enemy enemy in enemies.Values)
+        {
+            if (enemy == null || !enemy.IsAlive())
+                continue;
+
+            float distance = Mathf.Abs(enemy.GridPosition.x - center.x) + Mathf.Abs(enemy.GridPosition.y - center.y);
+            if (distance <= radius)
+                result.Add(enemy);
+        }
+
+        return result;
+    }
+
+    public IReadOnlyList<Chest> GetChestsInRadius(Vector2Int center, float radius)
+    {
+        List<Chest> result = new List<Chest>();
+        foreach (Chest chest in chests.Values)
+        {
+            if (chest == null || chest.IsOpened)
+                continue;
+
+            float distance = Mathf.Abs(chest.GridPosition.x - center.x) + Mathf.Abs(chest.GridPosition.y - center.y);
+            if (distance <= radius)
+                result.Add(chest);
+        }
+
+        return result;
     }
 
     public void RegisterEnemy(Enemy enemy)
@@ -236,7 +267,7 @@ public class WorldGrid : MonoBehaviour
         if (enemy == null)
             return;
 
-        enemies[enemy.gridPosition] = enemy;
+        enemies[enemy.GridPosition] = enemy;
     }
 
     public void RemoveEnemy(Enemy enemy)
@@ -244,10 +275,25 @@ public class WorldGrid : MonoBehaviour
         if (enemy == null)
             return;
 
-        if (enemies.TryGetValue(enemy.gridPosition, out Enemy current) && current == enemy)
-        {
-            enemies.Remove(enemy.gridPosition);
-        }
+        if (enemies.TryGetValue(enemy.GridPosition, out Enemy current) && current == enemy)
+            enemies.Remove(enemy.GridPosition);
+    }
+
+    public void RegisterChest(Chest chest)
+    {
+        if (chest == null)
+            return;
+
+        chests[chest.GridPosition] = chest;
+    }
+
+    public void RemoveChest(Chest chest)
+    {
+        if (chest == null)
+            return;
+
+        if (chests.TryGetValue(chest.GridPosition, out Chest current) && current == chest)
+            chests.Remove(chest.GridPosition);
     }
 
     public Vector3 GridToWorld(Vector2Int gridPos)
@@ -267,11 +313,6 @@ public class WorldGrid : MonoBehaviour
         return GridPathfinding.TryGetNextStep(this, start, target, extraBlocked, out nextStep);
     }
 
-    public void ToggleWall(Vector2Int pos)
-    {
-        SetWall(pos, !HasWallAt(pos));
-    }
-
     public bool SetWall(Vector2Int pos, bool blocked)
     {
         if (!IsInsideGrid(pos))
@@ -286,21 +327,21 @@ public class WorldGrid : MonoBehaviour
         return true;
     }
 
-    void AddWall(Vector2Int pos)
+    public void ToggleWall(Vector2Int pos)
     {
-        SetWall(pos, true);
+        SetWall(pos, !HasWallAt(pos));
     }
 
-    void UpdateCellVisual(Vector2Int pos, bool blocked)
+    private void UpdateCellVisual(Vector2Int pos, bool blocked)
     {
         if (cells == null || !IsInsideGrid(pos))
             return;
 
         SpriteRenderer spriteRenderer = cells[pos.x, pos.y].GetComponent<SpriteRenderer>();
-        spriteRenderer.color = blocked ? currentCard.wallColor : currentCard.floorColor;
+        ProceduralEnvironmentFactory.ApplyCellVisual(cells[pos.x, pos.y], spriteRenderer, currentSegment.card.biomeId, currentSegment.floorColor, currentSegment.wallColor, pos, blocked);
     }
 
-    void EnsureSegmentRoot()
+    private void EnsureSegmentRoot()
     {
         if (segmentRoot != null)
             return;
@@ -312,29 +353,23 @@ public class WorldGrid : MonoBehaviour
             return;
         }
 
-        GameObject rootObject = new("GeneratedSegment");
+        GameObject rootObject = new GameObject("GeneratedSegment");
         rootObject.transform.SetParent(transform);
         rootObject.transform.localPosition = Vector3.zero;
         segmentRoot = rootObject.transform;
     }
 
-    Sprite GetOrCreateCellSprite()
+    private Sprite GetOrCreateCellSprite()
     {
         if (cachedCellSprite != null)
             return cachedCellSprite;
 
-        Texture2D texture = new(1, 1);
+        Texture2D texture = new Texture2D(1, 1);
         texture.SetPixel(0, 0, Color.white);
         texture.Apply();
         texture.filterMode = FilterMode.Point;
 
-        cachedCellSprite = Sprite.Create(
-            texture,
-            new Rect(0, 0, 1, 1),
-            new Vector2(0.5f, 0.5f),
-            1f
-        );
-
+        cachedCellSprite = Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
         return cachedCellSprite;
     }
 }
@@ -352,7 +387,6 @@ public static class GridDirectionUtility
     public static IReadOnlyList<Vector2Int> BuildPrioritizedDirections(Vector2Int from, Vector2Int to)
     {
         Vector2Int delta = to - from;
-
         Vector2Int primaryDirection;
         Vector2Int secondaryDirection;
 
@@ -367,14 +401,12 @@ public static class GridDirectionUtility
             secondaryDirection = new Vector2Int(delta.x == 0 ? 0 : (delta.x > 0 ? 1 : -1), 0);
         }
 
-        List<Vector2Int> directions = new(6);
+        List<Vector2Int> directions = new List<Vector2Int>(6);
         AddDirectionIfNeeded(directions, primaryDirection);
         AddDirectionIfNeeded(directions, secondaryDirection);
 
-        foreach (Vector2Int direction in CardinalDirections)
-        {
-            AddDirectionIfNeeded(directions, direction);
-        }
+        for (int i = 0; i < CardinalDirections.Length; i++)
+            AddDirectionIfNeeded(directions, CardinalDirections[i]);
 
         return directions;
     }
@@ -393,15 +425,14 @@ public static class GridPathfinding
     public static bool TryGetNextStep(WorldGrid worldGrid, Vector2Int start, Vector2Int target, Func<Vector2Int, bool> extraBlocked, out Vector2Int nextStep)
     {
         nextStep = start;
-
         if (worldGrid == null || start == target)
             return false;
 
-        List<Vector2Int> openSet = new() { start };
-        HashSet<Vector2Int> closedSet = new();
-        Dictionary<Vector2Int, Vector2Int> cameFrom = new();
-        Dictionary<Vector2Int, int> gScore = new() { [start] = 0 };
-        Dictionary<Vector2Int, int> fScore = new() { [start] = Heuristic(start, target) };
+        List<Vector2Int> openSet = new List<Vector2Int> { start };
+        HashSet<Vector2Int> closedSet = new HashSet<Vector2Int>();
+        Dictionary<Vector2Int, Vector2Int> cameFrom = new Dictionary<Vector2Int, Vector2Int>();
+        Dictionary<Vector2Int, int> gScore = new Dictionary<Vector2Int, int> { [start] = 0 };
+        Dictionary<Vector2Int, int> fScore = new Dictionary<Vector2Int, int> { [start] = Heuristic(start, target) };
 
         while (openSet.Count > 0)
         {
@@ -416,17 +447,15 @@ public static class GridPathfinding
             closedSet.Add(current);
 
             IReadOnlyList<Vector2Int> directions = GridDirectionUtility.BuildPrioritizedDirections(current, target);
-            foreach (Vector2Int direction in directions)
+            for (int i = 0; i < directions.Count; i++)
             {
-                Vector2Int neighbor = current + direction;
-
+                Vector2Int neighbor = current + directions[i];
                 if (closedSet.Contains(neighbor))
                     continue;
 
                 bool canStandOnNeighbor = neighbor == target || worldGrid.IsWalkable(neighbor);
                 if (!canStandOnNeighbor)
                     continue;
-
                 if (neighbor != target && extraBlocked != null && extraBlocked(neighbor))
                     continue;
 
@@ -440,9 +469,7 @@ public static class GridPathfinding
                 fScore[neighbor] = tentativeGScore + Heuristic(neighbor, target);
 
                 if (!openSet.Contains(neighbor))
-                {
                     openSet.Add(neighbor);
-                }
             }
         }
 
@@ -460,7 +487,6 @@ public static class GridPathfinding
             Vector2Int candidate = openSet[i];
             int candidateScore = GetScore(fScore, candidate);
             int candidateHeuristic = Heuristic(candidate, target);
-
             if (candidateScore < bestScore || (candidateScore == bestScore && candidateHeuristic < bestHeuristic))
             {
                 bestNode = candidate;
@@ -475,11 +501,8 @@ public static class GridPathfinding
     private static Vector2Int ReconstructFirstStep(Dictionary<Vector2Int, Vector2Int> cameFrom, Vector2Int start, Vector2Int current)
     {
         Vector2Int step = current;
-
         while (cameFrom.TryGetValue(step, out Vector2Int previous) && previous != start)
-        {
             step = previous;
-        }
 
         return step;
     }

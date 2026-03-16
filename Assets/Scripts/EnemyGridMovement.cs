@@ -1,56 +1,39 @@
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 [RequireComponent(typeof(Enemy))]
 public class EnemyGridMovement : MonoBehaviour
 {
-    [Header("Movement")]
-    [SerializeField] private float moveSpeed = 4f;
-    [SerializeField] private float moveInterval = 0.8f;
+    [SerializeField] private float baseMoveScale = BalanceConfig.GridMoveSpeedScale;
+    [SerializeField] private float baseDecisionInterval = 0.8f;
 
     private Enemy enemy;
     private PlayerGridMovement player;
-
     private Vector3 targetPosition;
     private bool isMoving;
     private float moveTimer;
-    private bool isDeadOrDisabled;
+
+    void Awake()
+    {
+        enemy = GetComponent<Enemy>();
+    }
 
     void Start()
     {
-        enemy = GetComponent<Enemy>();
         player = Object.FindFirstObjectByType<PlayerGridMovement>();
-
-        if (enemy == null)
+        if (WorldGrid.Instance != null && enemy != null)
         {
-            Debug.LogError("EnemyGridMovement necessita un component Enemy.");
-            enabled = false;
-            return;
-        }
-
-        if (WorldGrid.Instance != null)
-        {
-            targetPosition = WorldGrid.Instance.GridToWorld(enemy.gridPosition);
+            targetPosition = WorldGrid.Instance.GridToWorld(enemy.GridPosition);
             transform.position = targetPosition;
         }
     }
 
     void Update()
     {
-        if (isDeadOrDisabled)
+        if (enemy == null || player == null || WorldGrid.Instance == null || RunManager.Instance == null)
             return;
 
-        if (player == null || WorldGrid.Instance == null || enemy == null)
+        if (!RunManager.Instance.AllowsActorTurns || !enemy.IsAlive() || player.CurrentHealth <= 0)
             return;
-
-        if (RunManager.Instance != null && !RunManager.Instance.AllowsActorTurns)
-            return;
-
-        if (!enemy.IsAlive())
-        {
-            isDeadOrDisabled = true;
-            return;
-        }
 
         if (isMoving)
         {
@@ -59,99 +42,98 @@ public class EnemyGridMovement : MonoBehaviour
         }
 
         moveTimer += Time.deltaTime;
+        float interval = Mathf.Max(0.15f, baseDecisionInterval / Mathf.Max(0.2f, enemy.Speed));
+        if (moveTimer < interval)
+            return;
 
-        if (moveTimer >= moveInterval)
-        {
-            moveTimer = 0f;
-            TryChasePlayer();
-        }
+        moveTimer = 0f;
+        TakeAction();
     }
 
-    void MoveToTargetCell()
+    private void TakeAction()
+    {
+        int distanceToHero = Manhattan(enemy.GridPosition, player.GridPosition);
+        if (distanceToHero <= 1)
+        {
+            CombatSystem.ResolveMelee(player, enemy);
+            return;
+        }
+
+        if (enemy.IsRanged && distanceToHero <= enemy.Range && HasLineOfSight(enemy.GridPosition, player.GridPosition))
+        {
+            CombatSystem.ResolveRangedAttack(enemy, player);
+            return;
+        }
+
+        bool pathFound = WorldGrid.Instance.TryGetNextPathStep(
+            enemy.GridPosition,
+            player.GridPosition,
+            pos => pos != player.GridPosition && WorldGrid.Instance.HasEnemyAt(pos),
+            out Vector2Int nextStep);
+
+        if (!pathFound)
+            return;
+
+        TryMove(nextStep);
+    }
+
+    private void TryMove(Vector2Int newPosition)
+    {
+        if (!WorldGrid.Instance.IsWalkable(newPosition))
+            return;
+
+        if (newPosition != player.GridPosition && WorldGrid.Instance.HasEnemyAt(newPosition))
+            return;
+
+        WorldGrid.Instance.RemoveEnemy(enemy);
+        enemy.SetGridPosition(newPosition);
+        WorldGrid.Instance.RegisterEnemy(enemy);
+        targetPosition = WorldGrid.Instance.GridToWorld(newPosition);
+        isMoving = true;
+    }
+
+    private void MoveToTargetCell()
     {
         transform.position = Vector3.MoveTowards(
             transform.position,
             targetPosition,
-            moveSpeed * Time.deltaTime
-        );
+            baseMoveScale * enemy.Speed * Time.deltaTime);
 
-        if (Vector3.Distance(transform.position, targetPosition) < 0.01f)
+        if (Vector3.Distance(transform.position, targetPosition) > 0.01f)
+            return;
+
+        transform.position = targetPosition;
+        isMoving = false;
+
+        if (enemy.GridPosition == player.GridPosition)
         {
-            transform.position = targetPosition;
-            isMoving = false;
-            CheckPlayerCollision();
+            CombatSystem.ResolveMelee(player, enemy);
         }
     }
 
-    void TryChasePlayer()
+    private bool HasLineOfSight(Vector2Int from, Vector2Int to)
     {
-        if (player == null)
-            return;
+        if (from.x != to.x && from.y != to.y)
+            return false;
 
-        bool pathFound = WorldGrid.Instance.TryGetNextPathStep(
-            enemy.gridPosition,
-            player.GridPosition,
-            pos => pos != player.GridPosition && WorldGrid.Instance.HasEnemyAt(pos),
-            out Vector2Int nextStep
-        );
+        Vector2Int direction = new Vector2Int(
+            to.x == from.x ? 0 : (to.x > from.x ? 1 : -1),
+            to.y == from.y ? 0 : (to.y > from.y ? 1 : -1));
 
-        if (pathFound && TryMove(nextStep - enemy.gridPosition))
-            return;
-
-        IReadOnlyList<Vector2Int> prioritizedDirections =
-            GridDirectionUtility.BuildPrioritizedDirections(enemy.gridPosition, player.GridPosition);
-
-        foreach (Vector2Int direction in prioritizedDirections)
+        Vector2Int current = from + direction;
+        while (current != to)
         {
-            if (TryMove(direction))
-                return;
+            if (WorldGrid.Instance.HasWallAt(current))
+                return false;
+
+            current += direction;
         }
-    }
-
-    bool TryMove(Vector2Int direction)
-    {
-        if (direction == Vector2Int.zero)
-            return false;
-
-        Vector2Int newPosition = enemy.gridPosition + direction;
-
-        if (!WorldGrid.Instance.IsWalkable(newPosition))
-            return false;
-
-        if (newPosition != player.GridPosition && WorldGrid.Instance.HasEnemyAt(newPosition))
-            return false;
-
-        WorldGrid.Instance.RemoveEnemy(enemy);
-
-        enemy.gridPosition = newPosition;
-        WorldGrid.Instance.RegisterEnemy(enemy);
-
-        targetPosition = WorldGrid.Instance.GridToWorld(enemy.gridPosition);
-        isMoving = true;
 
         return true;
     }
 
-    void CheckPlayerCollision()
+    private static int Manhattan(Vector2Int a, Vector2Int b)
     {
-        if (player == null || enemy == null || !enemy.IsAlive())
-            return;
-
-        if (enemy.gridPosition == player.GridPosition)
-        {
-            Debug.Log("L'enemic ha atrapat l'heroi");
-
-            player.TakeDamage(enemy.Attack);
-
-            if (player.CurrentHealth > 0 && enemy.IsAlive())
-            {
-                enemy.TakeDamage(player.Attack);
-            }
-
-            if (!enemy.IsAlive())
-            {
-                isDeadOrDisabled = true;
-            }
-        }
+        return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
     }
 }

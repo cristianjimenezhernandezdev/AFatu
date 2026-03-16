@@ -49,11 +49,9 @@ public static class MapCardRuntimeFactory
         return card.cardId;
     }
 
-    public static List<MapCardData> BuildFallbackLibrary(GameObject enemyTemplate)
+    public static List<MapCardData> BuildFallbackLibrary(GameObject[] enemyTemplates)
     {
-        GameObject[] enemyPool = enemyTemplate == null
-            ? System.Array.Empty<GameObject>()
-            : new[] { enemyTemplate };
+        GameObject[] enemyPool = enemyTemplates ?? System.Array.Empty<GameObject>();
 
         return new List<MapCardData>
         {
@@ -63,10 +61,10 @@ public static class MapCardRuntimeFactory
                 "Boscos oberts amb pocs obstacles i amenaces moderades.",
                 true,
                 "forest",
-                new Color32(126, 173, 102, 255),
-                new Color32(56, 92, 54, 255),
-                16,
-                10,
+                new Color32(111, 150, 86, 255),
+                new Color32(57, 87, 50, 255),
+                20,
+                12,
                 0.10f,
                 0.12f,
                 enemyPool
@@ -77,10 +75,10 @@ public static class MapCardRuntimeFactory
                 "Ruines estretes amb molts murs i emboscades frequents.",
                 true,
                 "ruins",
-                new Color32(147, 142, 133, 255),
-                new Color32(68, 62, 59, 255),
-                17,
-                10,
+                new Color32(154, 145, 133, 255),
+                new Color32(81, 73, 68, 255),
+                21,
+                12,
                 0.18f,
                 0.18f,
                 enemyPool
@@ -91,10 +89,10 @@ public static class MapCardRuntimeFactory
                 "Bioma dens amb camins irregulars i enemics puntuals.",
                 true,
                 "swamp",
-                new Color32(98, 131, 113, 255),
-                new Color32(39, 66, 55, 255),
-                16,
-                11,
+                new Color32(92, 126, 103, 255),
+                new Color32(44, 67, 58, 255),
+                20,
+                12,
                 0.16f,
                 0.14f,
                 enemyPool
@@ -105,10 +103,10 @@ public static class MapCardRuntimeFactory
                 "Zona mes oberta on el perill arriba en onades disperses.",
                 false,
                 "desert",
-                new Color32(215, 184, 112, 255),
-                new Color32(133, 92, 49, 255),
-                18,
-                10,
+                new Color32(217, 182, 113, 255),
+                new Color32(135, 96, 56, 255),
+                21,
+                12,
                 0.08f,
                 0.20f,
                 enemyPool
@@ -119,10 +117,10 @@ public static class MapCardRuntimeFactory
                 "Segment llarg i perillos on l'heroi ha de forcar rutes alternatives.",
                 false,
                 "citadel",
-                new Color32(199, 203, 207, 255),
-                new Color32(79, 84, 98, 255),
-                19,
-                11,
+                new Color32(203, 208, 214, 255),
+                new Color32(85, 92, 108, 255),
+                21,
+                12,
                 0.20f,
                 0.16f,
                 enemyPool
@@ -133,10 +131,10 @@ public static class MapCardRuntimeFactory
                 "Coves calentes amb passadissos trencats i pressio constant.",
                 false,
                 "cavern",
-                new Color32(175, 103, 70, 255),
-                new Color32(87, 42, 31, 255),
-                17,
-                11,
+                new Color32(171, 100, 69, 255),
+                new Color32(93, 47, 36, 255),
+                20,
+                12,
                 0.22f,
                 0.22f,
                 enemyPool
@@ -144,14 +142,12 @@ public static class MapCardRuntimeFactory
         };
     }
 
-    public static MapCardData CreateRuntimeCardFromRemote(RemoteMapCardDefinition definition, GameObject enemyTemplate)
+    public static MapCardData CreateRuntimeCardFromRemote(RemoteMapCardDefinition definition, GameObject[] enemyTemplates)
     {
         if (definition == null || string.IsNullOrWhiteSpace(definition.cardId))
             return null;
 
-        GameObject[] enemyPool = enemyTemplate == null
-            ? System.Array.Empty<GameObject>()
-            : new[] { enemyTemplate };
+        GameObject[] enemyPool = enemyTemplates ?? System.Array.Empty<GameObject>();
 
         Color floorColor = ParseColorOrDefault(definition.floorColorHex, Color.gray);
         Color wallColor = ParseColorOrDefault(definition.wallColorHex, Color.black);

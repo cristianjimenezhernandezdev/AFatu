@@ -1,6 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class RunManager : MonoBehaviour
@@ -11,6 +10,7 @@ public class RunManager : MonoBehaviour
         Bootstrapping,
         Transitioning,
         ExploringSegment,
+        AwaitingShopChoice,
         AwaitingCardChoice,
         Completed,
         Failed
@@ -21,53 +21,65 @@ public class RunManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private WorldGrid worldGrid;
     [SerializeField] private PlayerGridMovement player;
+    [SerializeField] private HeroAIController heroAi;
     [SerializeField] private GameObject fallbackEnemyTemplate;
 
     [Header("Run Setup")]
-    [SerializeField] private List<MapCardData> unlockedCards = new();
-    [SerializeField] private List<MapCardData> localCardLibrary = new();
-    [SerializeField] private MapCardData startingCard;
-    [SerializeField] private int cardChoiceCount = 3;
-    [SerializeField] private int segmentsToClearForVictory = 5;
-    [SerializeField] private int cardsUnlockedPerVictory = 1;
+    [SerializeField] private int targetRunLength = BalanceConfig.DefaultShortRunLength;
+    [SerializeField] private string localPlayerId = BalanceConfig.LocalPlayerId;
+    [SerializeField] private bool autoStartOnPlay = true;
 
-    [Header("Local Progress")]
-    [SerializeField] private string progressFileName = "architectusfati_progress.json";
-    [SerializeField] private bool useBuiltInUi = true;
-    [SerializeField] private bool resetLocalProgressOnPlay;
+    private IContentRepository contentRepository;
+    private IProgressionRepository progressionRepository;
+    private IRunRepository runRepository;
 
-    [Header("Remote API")]
-    [SerializeField] private bool useRemoteApi;
-    [SerializeField] private string apiBaseUrl = "http://localhost:5123";
-    [SerializeField] private string remotePlayerId = "local-player";
-    [SerializeField][Min(1)] private int apiTimeoutSeconds = 10;
+    private SegmentGenerator segmentGenerator;
+    private EconomySystem economySystem;
+    private ShopSystem shopSystem;
+    private DivinePowerSystem divinePowerSystem;
 
-    [Header("Debug")]
-    [SerializeField] private bool autoPickFirstCardInConsole;
+    private PlayerProfileData playerProfile;
+    private PlayerProgressData playerProgress;
+    private List<PlayerCardUnlockData> playerCardUnlocks = new List<PlayerCardUnlockData>();
+    private List<PlayerDivinePowerUnlockData> playerDivinePowerUnlocks = new List<PlayerDivinePowerUnlockData>();
+    private List<PlayerConsumableStackData> playerConsumables = new List<PlayerConsumableStackData>();
+    private List<PendingHeroBonusData> pendingHeroBonuses = new List<PendingHeroBonusData>();
 
-    private readonly List<MapCardData> allCards = new();
-    private readonly Dictionary<string, MapCardData> cardsById = new();
+    private readonly List<CardSeedData> currentCardChoices = new List<CardSeedData>();
+    private readonly List<ShopOfferData> currentShopOffers = new List<ShopOfferData>();
+    private readonly List<string> equippedPowerIds = new List<string>();
 
-    private bool waitingForCardChoice;
-    private bool isBootstrapped;
-    private int segmentsClearedThisRun;
-    private string runSummaryMessage = string.Empty;
-    private string rewardSummaryMessage = string.Empty;
-    private List<MapCardData> currentChoices = new();
+    private RunSessionData currentRun;
+    private SegmentRuntimeData currentSegment;
     private RunState currentState = RunState.None;
-    private LocalPlayerProgress progressData;
-    private GameObject runtimeEnemyTemplateInstance;
-    private RemoteGameApiClient remoteApiClient;
-    private RemoteMapCardDefinition[] remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
-    private RemotePlayerProgress remoteProgressSnapshot;
-    private bool remoteSyncInFlight;
-    private bool remoteSyncQueued;
+    private string summaryTitle = string.Empty;
+    private string summaryMessage = string.Empty;
+    private string feedbackMessage = string.Empty;
+    private GameObject runtimeEnemyTemplate;
 
-    public IReadOnlyList<MapCardData> CurrentChoices => currentChoices;
-    public bool WaitingForCardChoice => waitingForCardChoice;
     public RunState CurrentState => currentState;
     public bool AllowsActorTurns => currentState == RunState.ExploringSegment;
-    bool IsRemoteApiConfigured => useRemoteApi && !string.IsNullOrWhiteSpace(apiBaseUrl) && !string.IsNullOrWhiteSpace(remotePlayerId);
+    public RunSessionData CurrentRun => currentRun;
+    public SegmentRuntimeData CurrentSegment => currentSegment;
+    public IReadOnlyList<CardSeedData> CurrentCardChoices => currentCardChoices;
+    public IReadOnlyList<ShopOfferData> CurrentShopOffers => currentShopOffers;
+    public IReadOnlyList<DivinePowerSeedData> EquippedDivinePowers => divinePowerSystem?.EquippedPowers ?? System.Array.Empty<DivinePowerSeedData>();
+    public PlayerGridMovement Player => player;
+    public int CurrentGold => economySystem?.CurrentRunGold ?? 0;
+    public int CurrentEmeralds => economySystem?.CurrentEmeralds ?? 0;
+    public string SummaryTitle => summaryTitle;
+    public string SummaryMessage => summaryMessage;
+    public string FeedbackMessage => feedbackMessage;
+    public float GetDivinePowerCooldownSeconds(int slotIndex)
+    {
+        if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
+            return 0f;
+
+        return divinePowerSystem.GetCooldownRemaining(EquippedDivinePowers[slotIndex].powerId);
+    }
+    public string EffectiveHeroMode => divinePowerSystem == null || currentRun == null
+        ? BalanceConfig.DefaultHeroMode
+        : divinePowerSystem.GetEffectiveHeroMode(currentRun.heroMode);
 
     void Awake()
     {
@@ -80,337 +92,426 @@ public class RunManager : MonoBehaviour
         Instance = this;
     }
 
-    IEnumerator Start()
+    void Start()
     {
+        Bootstrap();
+        if (autoStartOnPlay)
+            StartRun();
+    }
+
+    void Update()
+    {
+        if (divinePowerSystem != null && player != null)
+        {
+            divinePowerSystem.Tick(Time.deltaTime, player);
+        }
+    }
+
+    public void Bootstrap()
+    {
+        if (currentState != RunState.None)
+            return;
+
+        currentState = RunState.Bootstrapping;
+
         if (worldGrid == null)
             worldGrid = FindFirstObjectByType<WorldGrid>();
 
         if (player == null)
             player = FindFirstObjectByType<PlayerGridMovement>();
 
-        yield return BootstrapRemoteDataIfNeeded();
-        BootstrapLocalMode();
-        StartRun();
+        if (heroAi == null && player != null)
+            heroAi = player.GetComponent<HeroAIController>();
+
+        contentRepository = new LocalJsonContentRepository();
+        progressionRepository = new LocalFileProgressionRepository();
+        runRepository = new InMemoryRunRepository();
+
+        playerProfile = progressionRepository.LoadProfile(localPlayerId) ?? new PlayerProfileData();
+        playerProgress = progressionRepository.LoadProgress(localPlayerId) ?? new PlayerProgressData();
+        playerCardUnlocks = progressionRepository.LoadCardUnlocks(localPlayerId)?.ToList() ?? new List<PlayerCardUnlockData>();
+        playerDivinePowerUnlocks = progressionRepository.LoadDivinePowerUnlocks(localPlayerId)?.ToList() ?? new List<PlayerDivinePowerUnlockData>();
+        playerConsumables = progressionRepository.LoadConsumableStacks(localPlayerId)?.ToList() ?? new List<PlayerConsumableStackData>();
+
+        EnsureProgressConsistency();
+
+        economySystem = new EconomySystem(playerProgress, playerConsumables);
+        shopSystem = new ShopSystem();
+        divinePowerSystem = new DivinePowerSystem(contentRepository);
+        segmentGenerator = new SegmentGenerator(contentRepository, runRepository);
+
+        EquipUnlockedDivinePowers();
+        runtimeEnemyTemplate = ResolveEnemyTemplate();
+        HookPlayerEvents();
+
+        currentState = RunState.Transitioning;
     }
 
     public void StartRun()
     {
-        BootstrapLocalMode();
+        if (contentRepository == null)
+            Bootstrap();
 
-        if (startingCard == null)
-        {
-            Debug.LogError("No hi ha cap startingCard valida per iniciar la run.");
-            return;
-        }
+        currentCardChoices.Clear();
+        currentShopOffers.Clear();
+        pendingHeroBonuses.Clear();
+        summaryTitle = string.Empty;
+        summaryMessage = string.Empty;
+        feedbackMessage = string.Empty;
 
-        waitingForCardChoice = false;
-        currentChoices.Clear();
-        runSummaryMessage = string.Empty;
-        rewardSummaryMessage = string.Empty;
-        segmentsClearedThisRun = 0;
+        HeroStatsData heroStats = BuildHeroStatsFromProgress();
+        string startingCardId = GetStartingCardId();
+        int runLength = ResolveRunLength();
 
-        SetState(RunState.Transitioning);
+        currentRun = runRepository.CreateRun(localPlayerId, runLength, startingCardId, playerProfile.selectedHeroMode, equippedPowerIds);
+        currentRun.heroMaxHealth = heroStats.maxHealth;
+        currentRun.heroCurrentHealth = heroStats.currentHealth;
+        currentRun.heroAttack = heroStats.attack;
+        currentRun.heroDefense = heroStats.defense;
+        currentRun.heroSpeed = heroStats.speed;
 
-        if (player != null)
-        {
-            player.ResetForRun();
-        }
+        player.ResetForRun();
+        player.ConfigureFromRun(heroStats);
+        economySystem.AttachRun(currentRun);
+        divinePowerSystem.EquipPowers(equippedPowerIds);
+        divinePowerSystem.OnSegmentStarted(player);
 
-        progressData.totalRunsStarted++;
-        SaveProgress();
+        playerProgress.totalRunsStarted += 1;
+        SaveProgression();
 
-        GenerateSegmentFromCard(startingCard);
-    }
-
-    public void OnPlayerReachedSegmentGoal()
-    {
-        if (currentState != RunState.ExploringSegment)
-            return;
-
-        segmentsClearedThisRun++;
-
-        if (segmentsClearedThisRun >= Mathf.Max(1, segmentsToClearForVictory))
-        {
-            CompleteRun();
-            return;
-        }
-
-        waitingForCardChoice = true;
-        currentChoices = DrawCardChoices(cardChoiceCount);
-        SetState(RunState.AwaitingCardChoice);
-
-        if (currentChoices.Count == 0)
-        {
-            Debug.LogWarning("No hi ha cartes desbloquejades per generar el seguent segment.");
-            CompleteRun();
-            return;
-        }
-
-        Debug.Log("Escull una carta per al seguent segment:");
-
-        for (int i = 0; i < currentChoices.Count; i++)
-        {
-            Debug.Log($"[{i}] {currentChoices[i].displayName}");
-        }
-
-        if (autoPickFirstCardInConsole && !useBuiltInUi)
-        {
-            SelectCard(0);
-        }
+        EnterNextSegment(startingCardId);
     }
 
     public void SelectCard(int index)
     {
-        if (!waitingForCardChoice)
+        if (currentState != RunState.AwaitingCardChoice || index < 0 || index >= currentCardChoices.Count)
             return;
 
-        if (index < 0 || index >= currentChoices.Count)
+        string selectedCardId = currentCardChoices[index].cardId;
+        runRepository.SaveSegmentChoices(currentRun.runId, currentRun.currentSegmentIndex, currentCardChoices, selectedCardId);
+        currentCardChoices.Clear();
+        currentShopOffers.Clear();
+        EnterNextSegment(selectedCardId);
+    }
+
+    public void BuyShopOffer(int index)
+    {
+        if (currentState != RunState.AwaitingShopChoice || index < 0 || index >= currentShopOffers.Count)
+            return;
+
+        ShopPurchaseResult result = shopSystem.TryPurchase(currentShopOffers[index], economySystem, player, pendingHeroBonuses);
+        feedbackMessage = result.feedback;
+        if (!result.success)
+            return;
+
+        runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "shop_purchase",
+            $"{{\"offerId\":\"{currentShopOffers[index].offerId}\",\"goldRemaining\":{economySystem.CurrentRunGold}}}");
+
+        if (result.rerollCardChoices)
         {
-            Debug.LogWarning("Index de carta invalid.");
+            currentCardChoices.Clear();
+            currentCardChoices.AddRange(DrawCardChoices(BalanceConfig.CardChoiceCount));
+        }
+
+        currentShopOffers.RemoveAt(index);
+    }
+
+    public void SkipShop()
+    {
+        if (currentState != RunState.AwaitingShopChoice)
+            return;
+
+        currentShopOffers.Clear();
+        currentState = RunState.AwaitingCardChoice;
+        feedbackMessage = "La botiga ha quedat enrere.";
+    }
+
+    public void TryActivateDivinePowerSlot(int slotIndex)
+    {
+        if (divinePowerSystem == null || player == null || currentRun == null)
+            return;
+
+        if (divinePowerSystem.TryActivate(slotIndex, player, out string feedback))
+        {
+            feedbackMessage = feedback;
+            runRepository.AddEvent(currentRun.runId, currentSegment != null ? currentSegment.segment.runSegmentId : 0L, "divine_power_used",
+                $"{{\"slot\":{slotIndex + 1},\"powerId\":\"{EquippedDivinePowers[slotIndex].powerId}\"}}");
             return;
         }
 
-        MapCardData selectedCard = currentChoices[index];
-        waitingForCardChoice = false;
-        currentChoices.Clear();
-        SetState(RunState.Transitioning);
+        feedbackMessage = feedback;
+    }
 
-        GenerateSegmentFromCard(selectedCard);
+    public void OnEnemyDefeated(Enemy enemy)
+    {
+        if (enemy == null || currentRun == null || currentSegment == null)
+            return;
+
+        runRepository.MarkEnemyDefeated(enemy.RunSegmentEnemyId);
+        runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "enemy_defeated",
+            $"{{\"enemyId\":\"{enemy.EnemyId}\",\"gold\":{enemy.RewardGold}}}");
+
+        if (enemy.RewardGold > 0)
+        {
+            economySystem.GrantRunGold(enemy.RewardGold);
+            runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, "gold", enemy.EnemyId, enemy.RewardGold, "{}");
+        }
+
+        playerProgress.totalEnemiesDefeated += 1;
+        SaveProgression();
+    }
+
+    public void OnChestOpened(Chest chest)
+    {
+        if (chest == null || currentRun == null || currentSegment == null || chest.IsOpened)
+            return;
+
+        int gold = chest.GoldReward;
+        int emeralds = chest.EmeraldReward;
+        string chestTier = chest.ChestTier;
+        chest.Open();
+
+        if (gold > 0)
+        {
+            economySystem.GrantRunGold(gold);
+            runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, "gold", $"chest_{chestTier}", gold, "{}");
+        }
+
+        if (emeralds > 0)
+        {
+            economySystem.GrantEmeralds(emeralds);
+            runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, "emerald", $"chest_{chestTier}", emeralds, "{}");
+        }
+
+        feedbackMessage = emeralds > 0
+            ? $"Cofre {chestTier} obert: +{gold} or i +{emeralds} esmeralda."
+            : $"Cofre {chestTier} obert: +{gold} or.";
+
+        runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "chest_opened",
+            $"{{\"tier\":\"{chestTier}\",\"gold\":{gold},\"emeralds\":{emeralds}}}");
+        SaveProgression();
+    }
+
+    public void OnPlayerReachedSegmentGoal()
+    {
+        if (currentState != RunState.ExploringSegment || currentRun == null || currentSegment == null)
+            return;
+
+        player.PauseHero();
+        currentRun.segmentsCleared += 1;
+        currentSegment.segment.state = "cleared";
+        currentSegment.segment.heroHealthOnExit = player.CurrentHealth;
+        currentRun.heroCurrentHealth = player.CurrentHealth;
+        currentRun.currentSegmentIndex += 1;
+
+        ApplyCardRewards(currentSegment.card.cardId);
+        divinePowerSystem.OnSegmentEnded(player);
+        AdvancePendingBonuses();
+
+        if (currentRun.segmentsCleared >= currentRun.targetSegmentCount)
+        {
+            CompleteRun();
+            return;
+        }
+
+        currentCardChoices.Clear();
+        currentCardChoices.AddRange(DrawCardChoices(BalanceConfig.CardChoiceCount));
+        if (currentCardChoices.Count == 0)
+        {
+            CompleteRun();
+            return;
+        }
+
+        bool shopShouldOpen = playerProgress.shopEnabled && BalanceConfig.ShouldOpenShop(currentRun.segmentsCleared, currentRun.targetSegmentCount);
+        if (shopShouldOpen)
+        {
+            currentShopOffers.Clear();
+            currentShopOffers.AddRange(shopSystem.GenerateOffers());
+            currentState = RunState.AwaitingShopChoice;
+            feedbackMessage = "Has trobat una botiga entre segments.";
+            runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "shop_opened",
+                $"{{\"segmentCleared\":{currentRun.segmentsCleared}}}");
+        }
+        else
+        {
+            currentState = RunState.AwaitingCardChoice;
+            feedbackMessage = "Tria la propera carta de bioma.";
+        }
+
+        runRepository.UpdateRun(currentRun);
     }
 
     public void FailRun()
     {
-        if (currentState == RunState.Failed)
+        if (currentRun == null || currentState == RunState.Failed || currentState == RunState.Completed)
             return;
 
-        waitingForCardChoice = false;
-        currentChoices.Clear();
-
-        if (player != null)
-            player.PauseHero();
-
-        progressData.failedRuns++;
-        SaveProgress();
-
-        rewardSummaryMessage = string.Empty;
-        runSummaryMessage = $"Run fallida al tram {segmentsClearedThisRun + 1}.";
-        SetState(RunState.Failed);
-        Debug.Log("Run fallida");
+        currentState = RunState.Failed;
+        player.PauseHero();
+        currentRun.status = "failed";
+        currentRun.heroCurrentHealth = Mathf.Max(0, player.CurrentHealth);
+        economySystem.GrantEmeralds(BalanceConfig.FailedRunEmeraldReward);
+        playerProgress.failedRuns += 1;
+        playerProgress.highestSegmentReached = Mathf.Max(playerProgress.highestSegmentReached, currentRun.segmentsCleared + 1);
+        summaryTitle = "Run fallida";
+        summaryMessage = $"Has caigut al segment {currentRun.segmentsCleared + 1}. Recompensa: {BalanceConfig.FailedRunEmeraldReward} esmeralda.";
+        runRepository.AddEvent(currentRun.runId, currentSegment != null ? currentSegment.segment.runSegmentId : 0L, "run_failed", "{}");
+        SaveProgression();
     }
 
     public void CompleteRun()
     {
-        if (currentState == RunState.Completed)
+        if (currentRun == null || currentState == RunState.Completed)
             return;
 
-        waitingForCardChoice = false;
-        currentChoices.Clear();
-
-        if (player != null)
-            player.PauseHero();
-
-        progressData.completedRuns++;
-        rewardSummaryMessage = GrantVictoryRewards();
-        runSummaryMessage = $"Run completada. Trams superats: {segmentsClearedThisRun}/{Mathf.Max(1, segmentsToClearForVictory)}.";
-        SaveProgress();
-
-        SetState(RunState.Completed);
-        Debug.Log("Run completada");
+        currentState = RunState.Completed;
+        player.PauseHero();
+        currentRun.status = "completed";
+        currentRun.heroCurrentHealth = Mathf.Max(0, player.CurrentHealth);
+        economySystem.GrantEmeralds(BalanceConfig.CompleteRunEmeraldReward);
+        playerProgress.completedRuns += 1;
+        playerProgress.highestSegmentReached = Mathf.Max(playerProgress.highestSegmentReached, currentRun.segmentsCleared);
+        summaryTitle = "Run completada";
+        summaryMessage = $"Has superat {currentRun.segmentsCleared} segments. Recompensa: {BalanceConfig.CompleteRunEmeraldReward} esmeraldes.";
+        runRepository.AddEvent(currentRun.runId, currentSegment != null ? currentSegment.segment.runSegmentId : 0L, "run_completed", "{}");
+        SaveProgression();
     }
 
-    void OnGUI()
+    private void EnterNextSegment(string cardId)
     {
-        if (!useBuiltInUi || !isBootstrapped)
-            return;
-
-        DrawHud();
-
-        if (currentState == RunState.AwaitingCardChoice)
+        currentState = RunState.Transitioning;
+        currentSegment = segmentGenerator.GenerateSegment(currentRun, cardId);
+        if (currentSegment == null)
         {
-            DrawCardSelectionOverlay();
-        }
-        else if (currentState == RunState.Completed || currentState == RunState.Failed)
-        {
-            DrawRunSummaryOverlay();
-        }
-    }
-
-    void BootstrapLocalMode()
-    {
-        if (isBootstrapped)
-            return;
-
-        SetState(RunState.Bootstrapping);
-
-        List<MapCardData> configuredUnlockedCards = new(unlockedCards);
-
-        if (resetLocalProgressOnPlay)
-        {
-            DeleteSavedProgress();
-        }
-
-        runtimeEnemyTemplateInstance = ResolveEnemyTemplate();
-        BuildCardLibrary(configuredUnlockedCards);
-        EnsureStartingCardReady();
-        LoadOrCreateProgress(configuredUnlockedCards);
-        SyncUnlockedCardsFromProgress();
-        EnsureStartingCardReady();
-
-        isBootstrapped = true;
-    }
-
-    void BuildCardLibrary(List<MapCardData> configuredUnlockedCards)
-    {
-        allCards.Clear();
-        cardsById.Clear();
-
-        RegisterCard(startingCard);
-
-        foreach (RemoteMapCardDefinition remoteCard in remoteCardDefinitions)
-        {
-            RegisterCard(MapCardRuntimeFactory.CreateRuntimeCardFromRemote(remoteCard, runtimeEnemyTemplateInstance));
-        }
-
-        foreach (MapCardData configuredCard in configuredUnlockedCards)
-        {
-            RegisterCard(configuredCard);
-        }
-
-        foreach (MapCardData configuredCard in localCardLibrary)
-        {
-            RegisterCard(configuredCard);
-        }
-
-        List<MapCardData> fallbackCards = MapCardRuntimeFactory.BuildFallbackLibrary(runtimeEnemyTemplateInstance);
-        foreach (MapCardData fallbackCard in fallbackCards)
-        {
-            RegisterCard(fallbackCard);
-        }
-    }
-
-    void RegisterCard(MapCardData card)
-    {
-        if (card == null)
-            return;
-
-        string cardId = MapCardRuntimeFactory.EnsureCardId(card);
-        if (string.IsNullOrEmpty(cardId) || cardsById.ContainsKey(cardId))
-            return;
-
-        allCards.Add(card);
-        cardsById.Add(cardId, card);
-    }
-
-    void EnsureStartingCardReady()
-    {
-        if (startingCard != null && cardsById.ContainsKey(MapCardRuntimeFactory.EnsureCardId(startingCard)))
-            return;
-
-        foreach (MapCardData card in allCards)
-        {
-            if (card != null && card.startsUnlocked)
-            {
-                startingCard = card;
-                return;
-            }
-        }
-
-        if (allCards.Count > 0)
-        {
-            startingCard = allCards[0];
-        }
-    }
-
-    void LoadOrCreateProgress(List<MapCardData> configuredUnlockedCards)
-    {
-        progressData = GetInitialProgressSnapshot();
-        progressData.unlockedCardIds ??= new List<string>();
-
-        bool hasValidUnlock = false;
-        for (int i = progressData.unlockedCardIds.Count - 1; i >= 0; i--)
-        {
-            string cardId = progressData.unlockedCardIds[i];
-            if (!cardsById.ContainsKey(cardId))
-            {
-                progressData.unlockedCardIds.RemoveAt(i);
-                continue;
-            }
-
-            hasValidUnlock = true;
-        }
-
-        if (!hasValidUnlock)
-        {
-            CreateDefaultProgress(configuredUnlockedCards);
-        }
-
-        progressData.totalCardsUnlocked = progressData.unlockedCardIds.Count;
-
-        SaveProgress();
-    }
-
-    void CreateDefaultProgress(List<MapCardData> configuredUnlockedCards)
-    {
-        progressData = new LocalPlayerProgress();
-
-        foreach (MapCardData configuredCard in configuredUnlockedCards)
-        {
-            UnlockCard(configuredCard);
-        }
-
-        foreach (MapCardData card in allCards)
-        {
-            if (card != null && card.startsUnlocked)
-            {
-                UnlockCard(card);
-            }
-        }
-
-        UnlockCard(startingCard);
-
-        if (progressData.unlockedCardIds.Count == 0 && allCards.Count > 0)
-        {
-            UnlockCard(allCards[0]);
-        }
-    }
-
-    void SyncUnlockedCardsFromProgress()
-    {
-        unlockedCards = new List<MapCardData>();
-
-        foreach (string cardId in progressData.unlockedCardIds)
-        {
-            if (cardsById.TryGetValue(cardId, out MapCardData card) && card != null)
-            {
-                unlockedCards.Add(card);
-            }
-        }
-    }
-
-    void GenerateSegmentFromCard(MapCardData card)
-    {
-        if (card == null || worldGrid == null || player == null)
-        {
-            Debug.LogError("No s'ha pogut generar el segment perque falten referencies.");
+            FailRun();
             return;
         }
 
-        worldGrid.GenerateSegment(card);
+        ApplySegmentBonuses(currentSegment);
+        worldGrid.GenerateSegment(currentSegment, runtimeEnemyTemplate);
         player.SetGridPosition(worldGrid.EntryPosition, true);
         player.ResumeHero();
-        SetState(RunState.ExploringSegment);
+        heroAi?.ResetDecisionTimer();
 
-        Debug.Log($"Segment generat: {card.displayName}");
+        if (currentSegment.modifierRuntime.heroHealOnEnter > 0)
+            player.Heal(currentSegment.modifierRuntime.heroHealOnEnter);
+
+        currentRun.heroCurrentHealth = player.CurrentHealth;
+        currentSegment.segment.state = "entered";
+        currentState = RunState.ExploringSegment;
+        feedbackMessage = $"Segment {currentSegment.segment.segmentIndex}: {currentSegment.card.displayName}.";
+        runRepository.UpdateRun(currentRun);
     }
 
-    List<MapCardData> DrawCardChoices(int amount)
+    private void ApplySegmentBonuses(SegmentRuntimeData segment)
     {
-        List<MapCardData> result = new();
-        if (unlockedCards == null || unlockedCards.Count == 0)
-            return result;
+        int attackBonus = 0;
+        int defenseBonus = 0;
+        int maxHealthBonus = 0;
+        float speedMultiplier = Mathf.Max(0.25f, segment.modifierRuntime.heroSpeedMultiplier);
 
-        List<MapCardData> pool = new(unlockedCards);
+        for (int i = 0; i < pendingHeroBonuses.Count; i++)
+        {
+            attackBonus += pendingHeroBonuses[i].attackBonus;
+            defenseBonus += pendingHeroBonuses[i].defenseBonus;
+            maxHealthBonus += pendingHeroBonuses[i].maxHealthBonus;
+            speedMultiplier *= Mathf.Max(0.25f, pendingHeroBonuses[i].speedMultiplierBonus <= 0f ? 1f : pendingHeroBonuses[i].speedMultiplierBonus);
+        }
 
+        player.ConfigureFromRun(new HeroStatsData
+        {
+            maxHealth = currentRun.heroMaxHealth,
+            currentHealth = currentRun.heroCurrentHealth,
+            attack = currentRun.heroAttack,
+            defense = currentRun.heroDefense,
+            speed = currentRun.heroSpeed
+        });
+
+        player.SetSegmentBonuses(attackBonus, defenseBonus, maxHealthBonus, speedMultiplier);
+        divinePowerSystem.OnSegmentStarted(player);
+    }
+
+    private void AdvancePendingBonuses()
+    {
+        for (int i = pendingHeroBonuses.Count - 1; i >= 0; i--)
+        {
+            pendingHeroBonuses[i].durationSegments -= 1;
+            if (pendingHeroBonuses[i].durationSegments <= 0)
+                pendingHeroBonuses.RemoveAt(i);
+        }
+    }
+
+    private void ApplyCardRewards(string cardId)
+    {
+        IReadOnlyList<CardRewardPoolSeedData> rewards = contentRepository.GetCardRewardPool(cardId);
+        if (rewards == null || rewards.Count == 0)
+            return;
+
+        CardRewardPoolSeedData reward = WeightedSelectionUtility.PickWeighted(rewards, item => item.weight);
+        if (reward == null)
+            return;
+
+        switch (reward.rewardType)
+        {
+            case "gold":
+                economySystem.GrantRunGold(reward.quantity);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Recompensa: +{reward.quantity} or.";
+                break;
+            case "heal":
+                player.Heal(reward.quantity);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Recompensa: +{reward.quantity} vida.";
+                break;
+            case "consumable":
+                economySystem.GrantConsumable(reward.rewardId, reward.quantity);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Consumible obtingut: {reward.rewardId}.";
+                break;
+            case "relic":
+                UnlockRelic(reward.rewardId);
+                ApplyRelicToCurrentRun(reward.rewardId);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Relic trobada: {reward.rewardId}.";
+                break;
+            case "card_unlock":
+                UnlockCard(reward.rewardId);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Carta desbloquejada: {reward.rewardId}.";
+                break;
+            case "emerald":
+                economySystem.GrantEmeralds(reward.quantity);
+                runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
+                feedbackMessage = $"Esmeraldes guanyades: {reward.quantity}.";
+                break;
+        }
+
+        currentRun.heroCurrentHealth = player.CurrentHealth;
+        SaveProgression();
+    }
+
+    private void ApplyRelicToCurrentRun(string relicId)
+    {
+        RelicSeedData relic = contentRepository.GetRelics().FirstOrDefault(item => item.relicId == relicId);
+        if (relic == null)
+            return;
+
+        RelicEffectConfigData effect = JsonSeedParser.ParseRelicEffect(relic.effectConfigJson);
+        currentRun.heroMaxHealth += effect.heroMaxHealthBonus;
+        currentRun.heroAttack += effect.heroAttackBonus;
+        currentRun.heroSpeed += effect.heroSpeedBonus;
+        currentRun.heroCurrentHealth = Mathf.Min(currentRun.heroCurrentHealth + effect.heroMaxHealthBonus, currentRun.heroMaxHealth);
+    }
+
+    private IReadOnlyList<CardSeedData> DrawCardChoices(int amount)
+    {
+        List<string> unlockedIds = GetUnlockedCardIds();
+        List<CardSeedData> pool = contentRepository.GetCards()
+            .Where(card => card.isActive && unlockedIds.Contains(card.cardId))
+            .OrderBy(card => card.sortOrder)
+            .ToList();
+
+        List<CardSeedData> result = new List<CardSeedData>();
         while (result.Count < amount && pool.Count > 0)
         {
             int index = Random.Range(0, pool.Count);
@@ -421,382 +522,219 @@ public class RunManager : MonoBehaviour
         return result;
     }
 
-    string GrantVictoryRewards()
+    private HeroStatsData BuildHeroStatsFromProgress()
     {
-        List<string> unlockedRewardNames = new();
+        HeroStatsData stats = new HeroStatsData();
+        List<string> unlockedRelics = playerProgress.unlockedRelicIds?.ToList() ?? new List<string>();
 
-        for (int i = 0; i < Mathf.Max(0, cardsUnlockedPerVictory); i++)
+        foreach (string relicId in unlockedRelics)
         {
-            List<MapCardData> lockedCards = GetLockedCards();
-            if (lockedCards.Count == 0)
+            RelicSeedData relic = contentRepository.GetRelics().FirstOrDefault(item => item.relicId == relicId);
+            if (relic == null)
+                continue;
+
+            RelicEffectConfigData effect = JsonSeedParser.ParseRelicEffect(relic.effectConfigJson);
+            stats.maxHealth += effect.heroMaxHealthBonus;
+            stats.attack += effect.heroAttackBonus;
+            stats.speed += effect.heroSpeedBonus;
+        }
+
+        stats.currentHealth = stats.maxHealth;
+        return stats;
+    }
+
+    private string GetStartingCardId()
+    {
+        List<string> unlockedIds = GetUnlockedCardIds();
+        CardSeedData card = contentRepository.GetCards()
+            .Where(item => item.isActive && unlockedIds.Contains(item.cardId))
+            .OrderBy(item => item.startsUnlocked ? 0 : 1)
+            .ThenBy(item => item.sortOrder)
+            .FirstOrDefault();
+
+        return card != null ? card.cardId : contentRepository.GetCards().First().cardId;
+    }
+
+    private int ResolveRunLength()
+    {
+        int preferred = targetRunLength > 0 ? targetRunLength : playerProfile.preferredRunLength;
+        if (preferred >= BalanceConfig.DefaultLongRunLength && playerProgress.run7Unlocked)
+            return BalanceConfig.DefaultLongRunLength;
+
+        return BalanceConfig.DefaultShortRunLength;
+    }
+
+    private void HookPlayerEvents()
+    {
+        if (player == null)
+            return;
+
+        player.ArrivedAtCell -= HandlePlayerArrived;
+        player.ArrivedAtCell += HandlePlayerArrived;
+        player.Died -= FailRun;
+        player.Died += FailRun;
+        player.HealthChanged -= HandlePlayerHealthChanged;
+        player.HealthChanged += HandlePlayerHealthChanged;
+    }
+
+    private void HandlePlayerArrived(Vector2Int position)
+    {
+        if (currentState != RunState.ExploringSegment)
+            return;
+
+        Chest chest = worldGrid.GetChestAt(position);
+        if (chest != null)
+            OnChestOpened(chest);
+
+        Enemy enemy = worldGrid.GetEnemyAt(position);
+        if (enemy != null)
+        {
+            CombatSystem.ResolveMelee(player, enemy);
+            return;
+        }
+
+        if (position == worldGrid.ExitPosition)
+            OnPlayerReachedSegmentGoal();
+    }
+
+    private void HandlePlayerHealthChanged(int currentHealth, int maxHealth)
+    {
+        if (currentRun == null)
+            return;
+
+        currentRun.heroCurrentHealth = currentHealth;
+        currentRun.heroMaxHealth = maxHealth;
+        runRepository.UpdateRun(currentRun);
+    }
+
+    private void EnsureProgressConsistency()
+    {
+        if (playerProgress.unlockedCardIds == null || playerProgress.unlockedCardIds.Length == 0)
+        {
+            playerProgress.unlockedCardIds = playerCardUnlocks.Select(item => item.cardId).ToArray();
+        }
+
+        if (playerCardUnlocks.Count == 0)
+        {
+            playerCardUnlocks = playerProgress.unlockedCardIds
+                .Select(cardId => new PlayerCardUnlockData { playerId = localPlayerId, cardId = cardId, unlockSource = "seed" })
+                .ToList();
+        }
+
+        if (playerProgress.unlockedDivinePowerIds == null || playerProgress.unlockedDivinePowerIds.Length == 0)
+        {
+            playerProgress.unlockedDivinePowerIds = playerDivinePowerUnlocks.Select(item => item.powerId).ToArray();
+        }
+
+        if (playerDivinePowerUnlocks.Count == 0)
+        {
+            playerDivinePowerUnlocks = playerProgress.unlockedDivinePowerIds
+                .Select(powerId => new PlayerDivinePowerUnlockData { playerId = localPlayerId, powerId = powerId, unlockSource = "seed" })
+                .ToList();
+        }
+    }
+
+    private void EquipUnlockedDivinePowers()
+    {
+        equippedPowerIds.Clear();
+        HashSet<string> unlockedPowerIds = new HashSet<string>(playerProgress.unlockedDivinePowerIds ?? System.Array.Empty<string>());
+        foreach (DivinePowerSeedData power in contentRepository.GetDivinePowers().OrderBy(item => item.sortOrder))
+        {
+            if (!power.isActive || !unlockedPowerIds.Contains(power.powerId))
+                continue;
+
+            equippedPowerIds.Add(power.powerId);
+            if (equippedPowerIds.Count >= BalanceConfig.MaxDivinePowerSlots)
                 break;
-
-            MapCardData unlockedCard = lockedCards[Random.Range(0, lockedCards.Count)];
-            if (!UnlockCard(unlockedCard))
-                continue;
-
-            unlockedRewardNames.Add(unlockedCard.displayName);
         }
-
-        SyncUnlockedCardsFromProgress();
-
-        if (unlockedRewardNames.Count == 0)
-            return "No hi havia cap carta pendent de desbloquejar.";
-
-        return $"Nova carta desbloquejada: {string.Join(", ", unlockedRewardNames)}.";
     }
 
-    List<MapCardData> GetLockedCards()
+    private void SaveProgression()
     {
-        List<MapCardData> lockedCards = new();
-
-        foreach (MapCardData card in allCards)
-        {
-            if (card == null)
-                continue;
-
-            string cardId = MapCardRuntimeFactory.EnsureCardId(card);
-            if (progressData.unlockedCardIds.Contains(cardId))
-                continue;
-
-            lockedCards.Add(card);
-        }
-
-        return lockedCards;
+        playerProgress.totalCardsUnlocked = GetUnlockedCardIds().Count;
+        playerProgress.unlockedCardIds = GetUnlockedCardIds().ToArray();
+        playerProgress.unlockedDivinePowerIds = playerDivinePowerUnlocks.Select(item => item.powerId).Distinct().ToArray();
+        playerProgress.softCurrency = 0;
+        progressionRepository.Save(playerProfile, playerProgress, playerCardUnlocks, playerDivinePowerUnlocks, playerConsumables);
     }
 
-    bool UnlockCard(MapCardData card)
+    private List<string> GetUnlockedCardIds()
     {
-        if (card == null)
-            return false;
-
-        string cardId = MapCardRuntimeFactory.EnsureCardId(card);
-        if (string.IsNullOrEmpty(cardId) || progressData.unlockedCardIds.Contains(cardId))
-            return false;
-
-        progressData.unlockedCardIds.Add(cardId);
-        progressData.totalCardsUnlocked = progressData.unlockedCardIds.Count;
-        return true;
+        HashSet<string> unlocked = new HashSet<string>(playerProgress.unlockedCardIds ?? System.Array.Empty<string>());
+        for (int i = 0; i < playerCardUnlocks.Count; i++)
+            unlocked.Add(playerCardUnlocks[i].cardId);
+        return unlocked.ToList();
     }
 
-    void DrawHud()
+    private void UnlockCard(string cardId)
     {
-        Rect area = new(12f, 12f, 280f, 140f);
-        GUILayout.BeginArea(area, GUI.skin.window);
-        GUILayout.Label($"Estat: {currentState}");
-        GUILayout.Label($"Tram: {Mathf.Min(segmentsClearedThisRun + 1, Mathf.Max(1, segmentsToClearForVictory))}/{Mathf.Max(1, segmentsToClearForVictory)}");
-        GUILayout.Label($"Cartes desbloquejades: {unlockedCards.Count}/{allCards.Count}");
+        if (string.IsNullOrWhiteSpace(cardId) || GetUnlockedCardIds().Contains(cardId))
+            return;
 
-        if (player != null)
+        playerCardUnlocks.Add(new PlayerCardUnlockData
         {
-            GUILayout.Label($"Vida heroi: {player.CurrentHealth}");
-        }
-
-        GUILayout.EndArea();
+            playerId = localPlayerId,
+            cardId = cardId,
+            unlockSource = "run_reward"
+        });
+        if (currentRun != null) currentRun.cardsUnlockedThisRun += 1;
     }
 
-    void DrawCardSelectionOverlay()
+    private void UnlockRelic(string relicId)
     {
-        Rect area = new(
-            Mathf.Max(20f, (Screen.width - 700f) * 0.5f),
-            Mathf.Max(20f, Screen.height - 300f),
-            Mathf.Min(700f, Screen.width - 40f),
-            260f
-        );
+        List<string> unlockedRelics = playerProgress.unlockedRelicIds?.ToList() ?? new List<string>();
+        if (unlockedRelics.Contains(relicId))
+            return;
 
-        GUILayout.BeginArea(area, GUI.skin.window);
-        GUILayout.Label("Porta del desti");
-        GUILayout.Label($"Tria la seguent carta per al tram {segmentsClearedThisRun + 1}/{Mathf.Max(1, segmentsToClearForVictory)}.");
-
-        for (int i = 0; i < currentChoices.Count; i++)
-        {
-            MapCardData card = currentChoices[i];
-            if (card == null)
-                continue;
-
-            string buttonLabel =
-                $"{i + 1}. {card.displayName}\n" +
-                $"{card.description}\n" +
-                $"Bioma: {card.biomeId} | Obstacles: {card.obstacleChance:0.00} | Enemics: {card.enemyChance:0.00}";
-
-            if (GUILayout.Button(buttonLabel, GUILayout.Height(62f)))
-            {
-                SelectCard(i);
-            }
-        }
-
-        GUILayout.EndArea();
+        unlockedRelics.Add(relicId);
+        playerProgress.unlockedRelicIds = unlockedRelics.ToArray();
     }
 
-    void DrawRunSummaryOverlay()
+    private GameObject ResolveEnemyTemplate()
     {
-        Rect area = new(
-            Mathf.Max(20f, (Screen.width - 460f) * 0.5f),
-            Mathf.Max(20f, (Screen.height - 260f) * 0.5f),
-            Mathf.Min(460f, Screen.width - 40f),
-            240f
-        );
-
-        GUILayout.BeginArea(area, GUI.skin.window);
-        GUILayout.Label(currentState == RunState.Completed ? "Run completada" : "Run fallida");
-        GUILayout.Label(runSummaryMessage);
-
-        if (!string.IsNullOrEmpty(rewardSummaryMessage))
+        GameObject sourceTemplate = fallbackEnemyTemplate;
+        if (sourceTemplate == null)
         {
-            GUILayout.Label(rewardSummaryMessage);
+            Enemy sceneEnemy = FindFirstObjectByType<Enemy>();
+            if (sceneEnemy != null)
+                sourceTemplate = sceneEnemy.gameObject;
         }
 
-        GUILayout.Space(8f);
-        GUILayout.Label($"Runs completades: {progressData.completedRuns}");
-        GUILayout.Label($"Runs fallides: {progressData.failedRuns}");
-        GUILayout.Label($"Cartes desbloquejades: {unlockedCards.Count}/{allCards.Count}");
+        GameObject template = sourceTemplate != null
+            ? Instantiate(sourceTemplate, transform)
+            : CreateRuntimeEnemyTemplate();
 
-        GUILayout.Space(12f);
+        template.name = "RuntimeEnemyTemplate";
+        template.SetActive(false);
 
-        if (GUILayout.Button("Comencar una nova run", GUILayout.Height(34f)))
+        if (template.GetComponent<Enemy>() == null)
+            template.AddComponent<Enemy>();
+        if (template.GetComponent<EnemyGridMovement>() == null)
+            template.AddComponent<EnemyGridMovement>();
+        if (template.GetComponent<ProceduralEnemyRenderer>() == null)
+            template.AddComponent<ProceduralEnemyRenderer>();
+        if (template.GetComponent<SpriteRenderer>() == null)
         {
-            StartRun();
+            SpriteRenderer renderer = template.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
+            renderer.sortingOrder = 12;
         }
 
-        GUILayout.EndArea();
-    }
-
-    GameObject ResolveEnemyTemplate()
-    {
-        if (fallbackEnemyTemplate != null)
-        {
-            GameObject template = Instantiate(fallbackEnemyTemplate, transform);
-            template.name = "RuntimeEnemyTemplate";
-            template.SetActive(false);
-            return template;
-        }
-
-        Enemy sceneEnemy = FindFirstObjectByType<Enemy>();
-        if (sceneEnemy != null)
-        {
-            GameObject template = Instantiate(sceneEnemy.gameObject, transform);
-            template.name = "RuntimeEnemyTemplate";
-            template.SetActive(false);
-            return template;
-        }
-
-        GameObject generatedTemplate = CreateRuntimeEnemyTemplate();
-        generatedTemplate.transform.SetParent(transform);
-        generatedTemplate.SetActive(false);
-        return generatedTemplate;
-    }
-
-    GameObject CreateRuntimeEnemyTemplate()
-    {
-        GameObject template = new("RuntimeEnemyTemplate");
-        SpriteRenderer spriteRenderer = template.AddComponent<SpriteRenderer>();
-        spriteRenderer.sprite = CreateSquareSprite();
-        spriteRenderer.color = new Color32(168, 52, 90, 255);
-        spriteRenderer.sortingOrder = 10;
-
-        template.AddComponent<Enemy>();
-        template.AddComponent<EnemyGridMovement>();
         return template;
     }
 
-    Sprite CreateSquareSprite()
+    private GameObject CreateRuntimeEnemyTemplate()
     {
-        Texture2D texture = new(1, 1);
-        texture.SetPixel(0, 0, Color.white);
-        texture.Apply();
-        texture.filterMode = FilterMode.Point;
-
-        return Sprite.Create(
-            texture,
-            new Rect(0, 0, 1, 1),
-            new Vector2(0.5f, 0.5f),
-            1f
-        );
-    }
-
-    string GetProgressFilePath()
-    {
-        return Path.Combine(Application.persistentDataPath, progressFileName);
-    }
-
-    void SaveProgress()
-    {
-        if (progressData == null)
-            return;
-
-        LocalProgressStore.Save(GetProgressFilePath(), progressData);
-        QueueRemoteProgressSync();
-    }
-
-    void DeleteSavedProgress()
-    {
-        string path = GetProgressFilePath();
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
-    }
-
-    void SetState(RunState newState)
-    {
-        currentState = newState;
-    }
-
-    IEnumerator BootstrapRemoteDataIfNeeded()
-    {
-        remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
-        remoteProgressSnapshot = null;
-
-        if (!useRemoteApi)
-            yield break;
-
-        if (!IsRemoteApiConfigured)
-        {
-            Debug.LogWarning("Remote API activada pero falta apiBaseUrl o remotePlayerId. Es fara servir el mode local.");
-            yield break;
-        }
-
-        remoteApiClient = new RemoteGameApiClient(apiBaseUrl, apiTimeoutSeconds);
-
-        string cardsError = null;
-        yield return remoteApiClient.FetchCards(
-            response =>
-            {
-                remoteCardDefinitions = response?.cards ?? System.Array.Empty<RemoteMapCardDefinition>();
-            },
-            error => cardsError = error);
-
-        if (!string.IsNullOrEmpty(cardsError))
-        {
-            Debug.LogWarning($"No s'han pogut carregar les cartes remotes: {cardsError}");
-            remoteCardDefinitions = System.Array.Empty<RemoteMapCardDefinition>();
-        }
-        else if (remoteCardDefinitions.Length > 0)
-        {
-            Debug.Log($"Carregades {remoteCardDefinitions.Length} cartes des de l'API.");
-        }
-
-        string progressError = null;
-        yield return remoteApiClient.FetchPlayerProgress(
-            remotePlayerId,
-            response =>
-            {
-                remoteProgressSnapshot = response?.progress;
-            },
-            error => progressError = error);
-
-        if (!string.IsNullOrEmpty(progressError))
-        {
-            Debug.LogWarning($"No s'ha pogut carregar el progres remot: {progressError}");
-        }
-        else if (remoteProgressSnapshot != null)
-        {
-            Debug.Log("Progres remot carregat correctament.");
-        }
-    }
-
-    LocalPlayerProgress GetInitialProgressSnapshot()
-    {
-        if (remoteProgressSnapshot != null)
-            return remoteProgressSnapshot.ToLocalProgress();
-
-        return LocalProgressStore.Load(GetProgressFilePath()) ?? new LocalPlayerProgress();
-    }
-
-    void QueueRemoteProgressSync()
-    {
-        if (!IsRemoteApiConfigured || remoteApiClient == null || progressData == null)
-            return;
-
-        if (remoteSyncInFlight)
-        {
-            remoteSyncQueued = true;
-            return;
-        }
-
-        StartCoroutine(SyncRemoteProgressRoutine());
-    }
-
-    IEnumerator SyncRemoteProgressRoutine()
-    {
-        do
-        {
-            remoteSyncQueued = false;
-            remoteSyncInFlight = true;
-
-            string syncError = null;
-            yield return remoteApiClient.UpsertPlayerProgress(
-                remotePlayerId,
-                progressData,
-                response =>
-                {
-                    remoteProgressSnapshot = response?.progress ?? RemotePlayerProgress.FromLocal(progressData);
-                },
-                error => syncError = error);
-
-            remoteSyncInFlight = false;
-
-            if (!string.IsNullOrEmpty(syncError))
-            {
-                Debug.LogWarning($"No s'ha pogut sincronitzar el progres remot: {syncError}");
-                yield break;
-            }
-        }
-        while (remoteSyncQueued);
-    }
-}
-[System.Serializable]
-public class LocalPlayerProgress
-{
-    public List<string> unlockedCardIds = new();
-    public int completedRuns;
-    public int failedRuns;
-    public int totalRunsStarted;
-    public int totalCardsUnlocked;
-}
-
-public static class LocalProgressStore
-{
-    public static LocalPlayerProgress Load(string path)
-    {
-        if (!File.Exists(path))
-            return null;
-
-        try
-        {
-            string json = File.ReadAllText(path);
-            if (string.IsNullOrWhiteSpace(json))
-                return null;
-
-            return JsonUtility.FromJson<LocalPlayerProgress>(json);
-        }
-        catch (System.Exception exception)
-        {
-            Debug.LogWarning($"No s'ha pogut carregar el progres local: {exception.Message}");
-            return null;
-        }
-    }
-
-    public static void Save(string path, LocalPlayerProgress progress)
-    {
-        if (progress == null)
-            return;
-
-        try
-        {
-            string directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            string json = JsonUtility.ToJson(progress, true);
-            File.WriteAllText(path, json);
-        }
-        catch (System.Exception exception)
-        {
-            Debug.LogWarning($"No s'ha pogut guardar el progres local: {exception.Message}");
-        }
+        GameObject template = new GameObject("RuntimeEnemyTemplate");
+        template.transform.SetParent(transform);
+        SpriteRenderer spriteRenderer = template.AddComponent<SpriteRenderer>();
+        spriteRenderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
+        spriteRenderer.color = Color.white;
+        spriteRenderer.sortingOrder = 12;
+        template.AddComponent<Enemy>();
+        template.AddComponent<EnemyGridMovement>();
+        template.AddComponent<ProceduralEnemyRenderer>();
+        return template;
     }
 }
 
