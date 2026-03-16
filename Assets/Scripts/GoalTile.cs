@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class GoalTile : MonoBehaviour
 {
@@ -16,15 +16,23 @@ public class GoalTile : MonoBehaviour
         }
 
         Instance = this;
+        EnsureRenderer();
     }
 
     public void SetGridPosition(Vector2Int newPosition)
     {
         gridPosition = newPosition;
-
         if (WorldGrid.Instance != null)
-        {
             transform.position = WorldGrid.Instance.GridToWorld(gridPosition);
-        }
+
+        ProceduralGoalRenderer renderer = GetComponent<ProceduralGoalRenderer>();
+        if (renderer != null)
+            renderer.Refresh();
+    }
+
+    private void EnsureRenderer()
+    {
+        if (GetComponent<ProceduralGoalRenderer>() == null)
+            gameObject.AddComponent<ProceduralGoalRenderer>();
     }
 }

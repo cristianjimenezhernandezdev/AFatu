@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -15,102 +15,118 @@ public class ProceduralEnemyRenderer : MonoBehaviour
 
     private static readonly string[] SkeletonIdleShape =
     {
-        "..BBBB..",
-        ".BEEEEB.",
-        ".BBBBBB.",
-        "..B..B..",
-        ".DBB.BD.",
-        "..B..B..",
-        ".B....B.",
-        "..B..B.."
+        "....BBBB....",
+        "...BEEEEB...",
+        "...BEEEEB...",
+        "..BB....BB..",
+        "..BBBBBBBB..",
+        "...B.BB.B...",
+        "..BDBBBBDB..",
+        "...B.BB.B...",
+        "..BB....BB..",
+        ".B..B..B..B."
     };
 
     private static readonly string[] SkeletonStrideShape =
     {
-        "..BBBB..",
-        ".BEEEEB.",
-        ".BBBBBB.",
-        "..B..B..",
-        ".DBB.BD.",
-        "..B..B..",
-        "BB....B.",
-        "B..B...."
+        "....BBBB....",
+        "...BEEEEB...",
+        "...BEEEEB...",
+        "..BB....BB..",
+        "..BBBBBBBB..",
+        "...B.BB.B...",
+        "..BDBBBBDB..",
+        "...B.BB.B...",
+        ".BB......B..",
+        "B...B..B...B"
     };
 
     private static readonly string[] BatWingUpShape =
     {
-        "W......W",
-        ".WW..WW.",
-        "..WPPW..",
-        ".WBBBBW.",
-        "WBBEEBBW",
-        ".WBBBBW.",
-        "..W..W..",
-        "...WW..."
+        "WW........WW",
+        ".WWW....WWW.",
+        "..WWPPPPWW..",
+        ".WWBBBBBBWW.",
+        "WWBBEEEEBBWW",
+        ".WBBBBBBBBW.",
+        "..WBBBBBBW..",
+        ".WW......WW.",
+        "WW........WW",
+        "..W......W.."
     };
 
     private static readonly string[] BatWingDownShape =
     {
-        "...WW...",
-        "..WPPW..",
-        ".WBBBBW.",
-        "WBBEEBBW",
-        ".WBBBBW.",
-        "..WBBW..",
-        ".W....W.",
-        "W......W"
+        "...WWWW.....",
+        ".WWPPPPWW...",
+        "WWBBBBBBWW..",
+        "WBBEEEEBBWW.",
+        ".WBBBBBBBBW.",
+        "..WBBBBBBW..",
+        ".WW....WW...",
+        "WW......WW..",
+        "W........WW.",
+        ".WW....WW..."
     };
 
     private static readonly string[] ZombieIdleShape =
     {
-        "..HHHH..",
-        ".HFFFFH.",
-        ".HHEEHH.",
-        "..CCCC..",
-        ".SCCCCS.",
-        "..C..C..",
-        ".L....L.",
-        "L......L"
+        "....HHHH....",
+        "...HFFFFH...",
+        "..HHFEEFHH..",
+        ".HHCCCCCCHH.",
+        ".HCCCCCCCCH.",
+        ".HSCCCCCCSH.",
+        "..HCCLLCCH..",
+        "..HCLLLLCH..",
+        ".LL......LL.",
+        "L..L....L..L"
     };
 
     private static readonly string[] ZombieStrideShape =
     {
-        "..HHHH..",
-        ".HFFFFH.",
-        ".HHEEHH.",
-        "..CCCC..",
-        ".SCCCCS.",
-        "..C..C..",
-        "LL....L.",
-        "..L..L.."
+        "....HHHH....",
+        "...HFFFFH...",
+        "..HHFEEFHH..",
+        ".HHCCCCCCHH.",
+        ".HCCCCCCCCH.",
+        ".HSCCCCCCSH.",
+        "..HCCLLCCH..",
+        "..HCLLLLCH..",
+        "LL.......L..",
+        "..L.L..L...L"
     };
 
     private static readonly string[] GhostPulseShape =
     {
-        "...GG...",
-        "..GEEG..",
-        ".GGCCGG.",
-        ".GCCCCG.",
-        ".GCCCCG.",
-        ".GGCCGG.",
-        "..G..G..",
-        ".G....G."
+        "....GGGG....",
+        "...GGEEGG...",
+        "..GGCCCCGG..",
+        ".GGCCPPCCGG.",
+        ".GCCPPPPCCG.",
+        ".GCCPPPPCCG.",
+        ".GGCCPPCCGG.",
+        "..GGCCCCGG..",
+        "...GG..GG...",
+        "..G......G.."
     };
 
     private static readonly string[] GhostFlareShape =
     {
-        "..GGGG..",
-        ".GGEEGG.",
-        "GGCCCCGG",
-        ".GCCCCG.",
-        ".GCCCCG.",
-        "GGCCCCGG",
-        ".GG..GG.",
-        "G......G"
+        "...GGGGGG...",
+        "..GGEEEEGG..",
+        ".GGCCCCCCGG.",
+        "GGCCPPPPCCGG",
+        "GCCPPPPPPCCG",
+        "GCCPPPPPPCCG",
+        "GGCCPPPPCCGG",
+        ".GGCCCCCCGG.",
+        "..GGG..GGG..",
+        ".GG......GG."
     };
 
     [SerializeField] private EnemyVisualType visualType = EnemyVisualType.Skeleton;
-    [SerializeField] private float pixelSize = 0.1f;
+    [SerializeField] private float pixelSize = 0.075f;
     [SerializeField] private int sortingOrder = 12;
     [SerializeField] private float animationStepDuration = 0.16f;
 
@@ -150,7 +166,6 @@ public class ProceduralEnemyRenderer : MonoBehaviour
     {
         if (enemy == null || !enemy.IsAlive())
             return;
-
         if (!hasObservedPosition)
         {
             lastObservedPosition = transform.position;
@@ -248,7 +263,6 @@ public class ProceduralEnemyRenderer : MonoBehaviour
                     continue;
 
                 EnsurePixelPoolSize(pixelIndex + 1);
-
                 GameObject pixel = generatedPixels[pixelIndex];
                 SpriteRenderer spriteRenderer = generatedPixelRenderers[pixelIndex];
                 pixel.SetActive(true);
@@ -267,15 +281,12 @@ public class ProceduralEnemyRenderer : MonoBehaviour
     {
         while (generatedPixels.Count < requiredCount)
         {
-            int index = generatedPixels.Count;
-            GameObject pixel = new GameObject($"Proc_EnemyPixel_{index}");
+            GameObject pixel = new GameObject($"Proc_EnemyPixel_{generatedPixels.Count}");
             pixel.transform.SetParent(transform, false);
             pixel.SetActive(false);
-
             SpriteRenderer spriteRenderer = pixel.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
             spriteRenderer.sortingOrder = sortingOrder;
-
             generatedPixels.Add(pixel);
             generatedPixelRenderers.Add(spriteRenderer);
         }
@@ -284,10 +295,8 @@ public class ProceduralEnemyRenderer : MonoBehaviour
     private void SetInactiveFrom(int startIndex)
     {
         for (int i = startIndex; i < generatedPixels.Count; i++)
-        {
             if (generatedPixels[i] != null)
                 generatedPixels[i].SetActive(false);
-        }
     }
 
     private void HideBaseSprite()
@@ -309,38 +318,39 @@ public class ProceduralEnemyRenderer : MonoBehaviour
             case EnemyVisualType.Bat:
                 switch (cell)
                 {
-                    case 'W': color = new Color32(72, 55, 104, 255); return true;
-                    case 'P': color = new Color32(137, 87, 126, 255); return true;
-                    case 'B': color = new Color32(36, 24, 52, 255); return true;
-                    case 'E': color = new Color32(226, 83, 124, 255); return true;
+                    case 'W': color = new Color32(67, 51, 94, 255); return true;
+                    case 'P': color = new Color32(142, 102, 135, 255); return true;
+                    case 'B': color = new Color32(35, 26, 53, 255); return true;
+                    case 'E': color = new Color32(230, 84, 124, 255); return true;
                 }
                 break;
             case EnemyVisualType.Zombie:
                 switch (cell)
                 {
-                    case 'H': color = new Color32(121, 155, 92, 255); return true;
-                    case 'F': color = new Color32(92, 121, 69, 255); return true;
-                    case 'E': color = new Color32(236, 110, 88, 255); return true;
-                    case 'C': color = new Color32(92, 78, 108, 255); return true;
-                    case 'S': color = new Color32(68, 57, 78, 255); return true;
-                    case 'L': color = new Color32(88, 69, 52, 255); return true;
+                    case 'H': color = new Color32(116, 154, 86, 255); return true;
+                    case 'F': color = new Color32(88, 117, 62, 255); return true;
+                    case 'E': color = new Color32(238, 116, 92, 255); return true;
+                    case 'C': color = new Color32(94, 81, 109, 255); return true;
+                    case 'S': color = new Color32(58, 48, 67, 255); return true;
+                    case 'L': color = new Color32(92, 71, 52, 255); return true;
                 }
                 break;
             case EnemyVisualType.GhostElite:
                 switch (cell)
                 {
-                    case 'G': color = new Color32(154, 188, 236, 220); return true;
-                    case 'E': color = new Color32(255, 238, 157, 255); return true;
-                    case 'C': color = new Color32(110, 132, 214, 210); return true;
+                    case 'G': color = new Color32(163, 196, 245, 220); return true;
+                    case 'E': color = new Color32(255, 240, 165, 255); return true;
+                    case 'C': color = new Color32(106, 129, 215, 220); return true;
+                    case 'P': color = new Color32(191, 228, 255, 240); return true;
                 }
                 break;
             case EnemyVisualType.Skeleton:
             default:
                 switch (cell)
                 {
-                    case 'B': color = new Color32(224, 220, 206, 255); return true;
-                    case 'D': color = new Color32(118, 111, 102, 255); return true;
-                    case 'E': color = new Color32(125, 208, 239, 255); return true;
+                    case 'B': color = new Color32(226, 222, 208, 255); return true;
+                    case 'D': color = new Color32(122, 114, 104, 255); return true;
+                    case 'E': color = new Color32(127, 211, 245, 255); return true;
                 }
                 break;
         }
@@ -353,7 +363,6 @@ public class ProceduralEnemyRenderer : MonoBehaviour
     {
         width = 0;
         height = 0;
-
         if (shape == null || shape.Length == 0)
             return false;
 
@@ -363,10 +372,8 @@ public class ProceduralEnemyRenderer : MonoBehaviour
             return false;
 
         for (int i = 1; i < shape.Length; i++)
-        {
             if (shape[i].Length != width)
                 return false;
-        }
 
         return true;
     }

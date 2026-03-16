@@ -7,29 +7,33 @@ public class ProceduralChestRenderer : MonoBehaviour
 {
     private static readonly string[] ClosedShape =
     {
-        "..GGGG..",
-        ".GYYYYG.",
-        ".GBBBBG.",
-        ".GBLLBG.",
-        ".GBBBBG.",
-        ".GBBBBG.",
-        ".G....G.",
-        "..GGGG.."
+        "...GGGG...",
+        "..GYYYYG..",
+        ".GGFFFFGG.",
+        ".GBBBBBBG.",
+        ".GBLLLLBG.",
+        ".GBBBBBBG.",
+        ".GBBBBBBG.",
+        ".GGMMMMGG.",
+        "..G....G..",
+        "...GGGG..."
     };
 
     private static readonly string[] OpenShape =
     {
-        ".GGGGGG.",
-        "GY....YG",
-        "G.BBBBG.",
-        ".GBLLBG.",
-        ".GBBBBG.",
-        ".GBBBBG.",
-        ".G....G.",
-        "..GGGG.."
+        ".GGGGGGGG.",
+        "GY......YG",
+        "GGGFFFFGGG",
+        "...BBBB...",
+        ".GBLLLLBG.",
+        ".GB....BG.",
+        ".GB....BG.",
+        ".GGMMMMGG.",
+        "..G....G..",
+        "...GGGG..."
     };
 
-    [SerializeField] private float pixelSize = 0.1f;
+    [SerializeField] private float pixelSize = 0.085f;
     [SerializeField] private int sortingOrder = 11;
 
     private readonly List<GameObject> pixels = new List<GameObject>();
@@ -106,18 +110,23 @@ public class ProceduralChestRenderer : MonoBehaviour
         switch (cell)
         {
             case 'G':
-                color = chestTier == "rare" ? new Color32(141, 198, 255, 255) : new Color32(224, 174, 72, 255);
+                color = chestTier == "rare" ? new Color32(126, 187, 255, 255) : new Color32(226, 177, 76, 255);
                 return true;
             case 'Y':
-                color = chestTier == "rare" ? new Color32(179, 255, 241, 255) : new Color32(255, 228, 116, 255);
+                color = chestTier == "rare" ? new Color32(210, 247, 255, 255) : new Color32(255, 231, 132, 255);
+                return true;
+            case 'F':
+                color = chestTier == "rare" ? new Color32(74, 104, 154, 255) : new Color32(149, 96, 42, 255);
                 return true;
             case 'B':
-                color = chestTier == "rare" ? new Color32(78, 106, 148, 255) : new Color32(126, 83, 45, 255);
+                color = chestTier == "rare" ? new Color32(58, 78, 124, 255) : new Color32(98, 63, 33, 255);
                 return true;
             case 'L':
-                color = new Color32(190, 214, 239, 255);
+                color = isOpened ? new Color32(62, 34, 21, 255) : new Color32(204, 184, 126, 255);
                 return true;
-            case '.':
+            case 'M':
+                color = new Color32(114, 118, 128, 255);
+                return true;
             default:
                 color = default;
                 return false;

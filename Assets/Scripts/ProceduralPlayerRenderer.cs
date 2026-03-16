@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -14,44 +14,51 @@ public class ProceduralPlayerRenderer : MonoBehaviour
 
     private static readonly string[] IdleShape =
     {
-        "..TTTT..",
-        ".TCHHCT.",
-        ".CHSSHC.",
-        "..HMMH..",
-        ".CHMMHC.",
-        ".CCMMCC.",
-        ".L....L.",
-        "..L..L.."
+        "....TT....",
+        "...TATT...",
+        "..THHHHT..",
+        "..HCSSCH..",
+        ".THCMMCHT.",
+        ".TCCMMCCT.",
+        "..CCMMCC..",
+        "..CLLLLC..",
+        ".LL....LL.",
+        "L..L..L..L"
     };
 
     private static readonly string[] StepLeftShape =
     {
-        "..TTTT..",
-        ".TCHHCT.",
-        ".CHSSHC.",
-        "..HMMH..",
-        ".CHMMHC.",
-        ".CCMMCC.",
-        "LL....L.",
-        "L..L...."
+        "....TT....",
+        "...TATT...",
+        "..THHHHT..",
+        "..HCSSCH..",
+        ".THCMMCHT.",
+        ".TCCMMCCT.",
+        "..CCMMCC..",
+        "..CLLLLC..",
+        "LL.....LL.",
+        "L..L...L.."
     };
 
     private static readonly string[] StepRightShape =
     {
-        "..TTTT..",
-        ".TCHHCT.",
-        ".CHSSHC.",
-        "..HMMH..",
-        ".CHMMHC.",
-        ".CCMMCC.",
-        ".L....LL",
-        "....L..L"
+        "....TT....",
+        "...TATT...",
+        "..THHHHT..",
+        "..HCSSCH..",
+        ".THCMMCHT.",
+        ".TCCMMCCT.",
+        "..CCMMCC..",
+        "..CLLLLC..",
+        ".LL.....LL",
+        "..L...L..L"
     };
 
     [Header("Pixels")]
-    [SerializeField] private float pixelSize = 0.1f;
+    [SerializeField] private float pixelSize = 0.085f;
     [SerializeField] private int sortingOrder = 11;
     [SerializeField] private Color trimColor = new Color32(234, 203, 116, 255);
+    [SerializeField] private Color accentColor = new Color32(245, 228, 172, 255);
     [SerializeField] private Color cloakColor = new Color32(44, 116, 139, 255);
     [SerializeField] private Color hoodColor = new Color32(25, 73, 93, 255);
     [SerializeField] private Color skinColor = new Color32(231, 188, 145, 255);
@@ -63,8 +70,8 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     [SerializeField] private float movementThreshold = 0.001f;
     [SerializeField] private float teleportThresholdMultiplier = 1.5f;
 
-    private readonly List<GameObject> generatedPixels = new();
-    private readonly List<SpriteRenderer> generatedPixelRenderers = new();
+    private readonly List<GameObject> generatedPixels = new List<GameObject>();
+    private readonly List<SpriteRenderer> generatedPixelRenderers = new List<SpriteRenderer>();
 
     private PlayerVisualPose currentPose = PlayerVisualPose.Idle;
     private SpriteRenderer baseSpriteRenderer;
@@ -117,42 +124,24 @@ public class ProceduralPlayerRenderer : MonoBehaviour
         ApplyShape(GetShapeForPose(pose));
     }
 
-    public void ShowIdle()
-    {
-        walkTimer = 0f;
-        SetPose(PlayerVisualPose.Idle);
-    }
-
-    public void ShowStepLeft()
-    {
-        SetPose(PlayerVisualPose.StepLeft);
-    }
-
-    public void ShowStepRight()
-    {
-        SetPose(PlayerVisualPose.StepRight);
-    }
-
     private void UpdateAnimation()
     {
-        Vector3 currentPosition = transform.position;
-        float deltaDistance = Vector3.Distance(currentPosition, lastObservedPosition);
+        float deltaDistance = Vector3.Distance(transform.position, lastObservedPosition);
         float cellSize = WorldGrid.Instance != null ? WorldGrid.Instance.CellSize : 1f;
         float teleportThreshold = cellSize * teleportThresholdMultiplier;
         bool isMoving = deltaDistance > movementThreshold && deltaDistance < teleportThreshold;
 
         if (!isMoving)
         {
-            ShowIdle();
+            walkTimer = 0f;
+            SetPose(PlayerVisualPose.Idle);
             return;
         }
 
         walkTimer += Time.deltaTime;
         float cycleDuration = stepDuration * 2f;
         if (walkTimer >= cycleDuration)
-        {
             walkTimer %= cycleDuration;
-        }
 
         SetPose(walkTimer < stepDuration ? PlayerVisualPose.StepLeft : PlayerVisualPose.StepRight);
     }
@@ -160,7 +149,6 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     private void ApplyShape(string[] shape)
     {
         HideBaseSprite();
-
         if (!TryGetShapeSize(shape, out int width, out int height))
         {
             SetInactiveFrom(0);
@@ -181,15 +169,10 @@ public class ProceduralPlayerRenderer : MonoBehaviour
                     continue;
 
                 EnsurePixelPoolSize(pixelIndex + 1);
-
                 GameObject pixel = generatedPixels[pixelIndex];
                 SpriteRenderer spriteRenderer = generatedPixelRenderers[pixelIndex];
                 pixel.SetActive(true);
-                pixel.transform.localPosition = new Vector3(
-                    (column - halfWidth) * scaledPixelSize,
-                    (halfHeight - row) * scaledPixelSize,
-                    0f
-                );
+                pixel.transform.localPosition = new Vector3((column - halfWidth) * scaledPixelSize, (halfHeight - row) * scaledPixelSize, 0f);
                 pixel.transform.localScale = Vector3.one * scaledPixelSize;
                 spriteRenderer.color = color;
                 spriteRenderer.sortingOrder = sortingOrder;
@@ -204,15 +187,12 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     {
         while (generatedPixels.Count < requiredCount)
         {
-            int index = generatedPixels.Count;
-            GameObject pixel = new($"Proc_PlayerPixel_{index}");
+            GameObject pixel = new GameObject($"Proc_PlayerPixel_{generatedPixels.Count}");
             pixel.transform.SetParent(transform, false);
             pixel.SetActive(false);
-
             SpriteRenderer spriteRenderer = pixel.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
             spriteRenderer.sortingOrder = sortingOrder;
-
             generatedPixels.Add(pixel);
             generatedPixelRenderers.Add(spriteRenderer);
         }
@@ -221,18 +201,14 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     private void SetInactiveFrom(int startIndex)
     {
         for (int i = startIndex; i < generatedPixels.Count; i++)
-        {
             if (generatedPixels[i] != null)
                 generatedPixels[i].SetActive(false);
-        }
     }
 
     private void HideBaseSprite()
     {
         if (baseSpriteRenderer != null)
-        {
             baseSpriteRenderer.enabled = false;
-        }
     }
 
     private float GetScaledPixelSize()
@@ -245,24 +221,17 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     {
         width = 0;
         height = 0;
-
         if (shape == null || shape.Length == 0)
             return false;
 
         height = shape.Length;
         width = shape[0].Length;
-
         if (width == 0)
             return false;
 
         for (int i = 1; i < shape.Length; i++)
-        {
             if (shape[i].Length != width)
-            {
-                Debug.LogWarning("ProceduralPlayerRenderer ha rebut una forma amb files de longitud inconsistent.");
                 return false;
-            }
-        }
 
         return true;
     }
@@ -271,27 +240,14 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     {
         switch (cell)
         {
-            case 'T':
-                color = trimColor;
-                return true;
-            case 'C':
-                color = cloakColor;
-                return true;
-            case 'H':
-                color = hoodColor;
-                return true;
-            case 'S':
-                color = skinColor;
-                return true;
-            case 'M':
-                color = metalColor;
-                return true;
-            case 'L':
-                color = leatherColor;
-                return true;
-            default:
-                color = default;
-                return false;
+            case 'T': color = trimColor; return true;
+            case 'A': color = accentColor; return true;
+            case 'C': color = cloakColor; return true;
+            case 'H': color = hoodColor; return true;
+            case 'S': color = skinColor; return true;
+            case 'M': color = metalColor; return true;
+            case 'L': color = leatherColor; return true;
+            default: color = default; return false;
         }
     }
 
@@ -304,5 +260,4 @@ public class ProceduralPlayerRenderer : MonoBehaviour
             _ => IdleShape
         };
     }
-
 }

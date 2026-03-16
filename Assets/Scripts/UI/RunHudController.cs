@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class RunHudController : MonoBehaviour
 {
@@ -16,6 +16,7 @@ public class RunHudController : MonoBehaviour
         if (!showUi || runManager == null)
             return;
 
+        RunUiTheme.EnsureInitialized();
         HeroHudPanel.Draw(runManager);
 
         switch (runManager.CurrentState)
