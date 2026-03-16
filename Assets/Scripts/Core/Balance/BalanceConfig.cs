@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public static class BalanceConfig
 {
@@ -24,6 +24,7 @@ public static class BalanceConfig
     public const int DefaultLongRunLength = 7;
     public const int CardChoiceCount = 3;
     public const int MaxDivinePowerSlots = 2;
+    public const int DivinePowerMaxCharges = 2;
 
     public const int ShopStartSegmentForRun5 = 3;
     public const int ShopStartSegmentForRun7 = 5;
@@ -161,3 +162,5 @@ public static class BalanceConfig
         return false;
     }
 }
+
+

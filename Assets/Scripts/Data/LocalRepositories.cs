@@ -13,6 +13,8 @@ public sealed class LocalJsonContentRepository : IContentRepository
     private readonly Dictionary<string, DivinePowerSeedData> divinePowers;
     private readonly Dictionary<string, RelicSeedData> relics;
     private readonly Dictionary<string, ConsumableSeedData> consumables;
+    private readonly Dictionary<string, ShopOfferSeedData> shopOffers;
+    private readonly Dictionary<string, RunResultSeedData> runResults;
     private readonly Dictionary<string, List<CardEnemyPoolSeedData>> cardEnemyPool;
     private readonly Dictionary<string, List<CardModifierPoolSeedData>> cardModifierPool;
     private readonly Dictionary<string, List<CardRewardPoolSeedData>> cardRewardPool;
@@ -33,6 +35,8 @@ public sealed class LocalJsonContentRepository : IContentRepository
         divinePowers = seed.divinePowers.Where(item => item != null).ToDictionary(item => item.powerId, item => item);
         relics = seed.relics.Where(item => item != null).ToDictionary(item => item.relicId, item => item);
         consumables = seed.consumables.Where(item => item != null).ToDictionary(item => item.consumableId, item => item);
+        shopOffers = seed.shopOffers.Where(item => item != null).ToDictionary(item => item.offerId, item => item);
+        runResults = seed.runResults.Where(item => item != null).ToDictionary(item => item.resultId, item => item);
         cardEnemyPool = seed.cardEnemyPool.GroupBy(item => item.cardId).ToDictionary(group => group.Key, group => group.ToList());
         cardModifierPool = seed.cardModifierPool.GroupBy(item => item.cardId).ToDictionary(group => group.Key, group => group.ToList());
         cardRewardPool = seed.cardRewardPool.GroupBy(item => item.cardId).ToDictionary(group => group.Key, group => group.ToList());
@@ -45,11 +49,15 @@ public sealed class LocalJsonContentRepository : IContentRepository
     public IReadOnlyList<WorldModifierSeedData> GetModifiers() => seed.modifiers;
     public IReadOnlyList<RelicSeedData> GetRelics() => seed.relics;
     public IReadOnlyList<ConsumableSeedData> GetConsumables() => seed.consumables;
+    public IReadOnlyList<ShopOfferSeedData> GetShopOffers() => seed.shopOffers;
+    public IReadOnlyList<RunResultSeedData> GetRunResults() => seed.runResults;
     public BiomeSeedData GetBiome(string biomeId) => biomes.TryGetValue(biomeId, out BiomeSeedData biome) ? biome : null;
     public CardSeedData GetCard(string cardId) => cards.TryGetValue(cardId, out CardSeedData card) ? card : null;
     public EnemyArchetypeSeedData GetEnemy(string enemyId) => enemies.TryGetValue(enemyId, out EnemyArchetypeSeedData enemy) ? enemy : null;
     public WorldModifierSeedData GetModifier(string modifierId) => modifiers.TryGetValue(modifierId, out WorldModifierSeedData modifier) ? modifier : null;
     public DivinePowerSeedData GetDivinePower(string powerId) => divinePowers.TryGetValue(powerId, out DivinePowerSeedData power) ? power : null;
+    public ShopOfferSeedData GetShopOffer(string offerId) => shopOffers.TryGetValue(offerId, out ShopOfferSeedData offer) ? offer : null;
+    public RunResultSeedData GetRunResult(string resultId) => runResults.TryGetValue(resultId, out RunResultSeedData result) ? result : null;
     public IReadOnlyList<CardEnemyPoolSeedData> GetCardEnemyPool(string cardId) => cardEnemyPool.TryGetValue(cardId, out List<CardEnemyPoolSeedData> pool) ? pool : Array.Empty<CardEnemyPoolSeedData>();
     public IReadOnlyList<CardModifierPoolSeedData> GetCardModifierPool(string cardId) => cardModifierPool.TryGetValue(cardId, out List<CardModifierPoolSeedData> pool) ? pool : Array.Empty<CardModifierPoolSeedData>();
     public IReadOnlyList<CardRewardPoolSeedData> GetCardRewardPool(string cardId) => cardRewardPool.TryGetValue(cardId, out List<CardRewardPoolSeedData> pool) ? pool : Array.Empty<CardRewardPoolSeedData>();
@@ -84,9 +92,7 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
 
         string directory = Path.GetDirectoryName(savePath);
         if (!string.IsNullOrEmpty(directory))
-        {
             Directory.CreateDirectory(directory);
-        }
 
         File.WriteAllText(savePath, JsonUtility.ToJson(cachedSeed, true));
     }
@@ -195,9 +201,7 @@ public sealed class InMemoryRunRepository : IRunRepository
 
         segmentEnemies[enemy.runSegmentEnemyId] = enemy;
         if (segments.TryGetValue(runSegmentId, out RunSegmentData segment))
-        {
             segment.enemies.Add(enemy);
-        }
 
         return enemy;
     }
@@ -205,9 +209,7 @@ public sealed class InMemoryRunRepository : IRunRepository
     public void MarkEnemyDefeated(long runSegmentEnemyId)
     {
         if (segmentEnemies.TryGetValue(runSegmentEnemyId, out RunSegmentEnemyData enemy))
-        {
             enemy.defeated = true;
-        }
     }
 
     public void AddReward(long runId, long runSegmentId, string rewardType, string rewardId, int quantity, string metadataJson)

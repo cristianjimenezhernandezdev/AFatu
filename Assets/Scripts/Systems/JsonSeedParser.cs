@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public static class JsonSeedParser
 {
@@ -39,6 +39,14 @@ public static class JsonSeedParser
     public static RelicEffectConfigData ParseRelicEffect(string json)
     {
         return ParseJson(json, new RelicEffectConfigData());
+    }
+
+    public static ShopOfferEffectConfigData ParseShopOfferEffect(string json)
+    {
+        ShopOfferEffectConfigData data = ParseJson(json, new ShopOfferEffectConfigData());
+        if (data.speedMultiplierBonus <= 0f)
+            data.speedMultiplierBonus = 1f;
+        return data;
     }
 
     private static T ParseJson<T>(string json, T fallback) where T : class

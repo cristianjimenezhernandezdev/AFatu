@@ -9,11 +9,15 @@ public interface IContentRepository
     IReadOnlyList<WorldModifierSeedData> GetModifiers();
     IReadOnlyList<RelicSeedData> GetRelics();
     IReadOnlyList<ConsumableSeedData> GetConsumables();
+    IReadOnlyList<ShopOfferSeedData> GetShopOffers();
+    IReadOnlyList<RunResultSeedData> GetRunResults();
     BiomeSeedData GetBiome(string biomeId);
     CardSeedData GetCard(string cardId);
     EnemyArchetypeSeedData GetEnemy(string enemyId);
     WorldModifierSeedData GetModifier(string modifierId);
     DivinePowerSeedData GetDivinePower(string powerId);
+    ShopOfferSeedData GetShopOffer(string offerId);
+    RunResultSeedData GetRunResult(string resultId);
     IReadOnlyList<CardEnemyPoolSeedData> GetCardEnemyPool(string cardId);
     IReadOnlyList<CardModifierPoolSeedData> GetCardModifierPool(string cardId);
     IReadOnlyList<CardRewardPoolSeedData> GetCardRewardPool(string cardId);

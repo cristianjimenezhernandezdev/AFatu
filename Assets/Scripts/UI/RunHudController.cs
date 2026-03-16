@@ -5,10 +5,17 @@ public class RunHudController : MonoBehaviour
     [SerializeField] private RunManager runManager;
     [SerializeField] private bool showUi = true;
 
+    public bool ShowUi => showUi;
+
     void Awake()
     {
         if (runManager == null)
             runManager = FindFirstObjectByType<RunManager>();
+    }
+
+    public void SetShowUi(bool value)
+    {
+        showUi = value;
     }
 
     void OnGUI()
@@ -18,6 +25,8 @@ public class RunHudController : MonoBehaviour
 
         RunUiTheme.EnsureInitialized();
         HeroHudPanel.Draw(runManager);
+        DivinePowersPanel.Draw(runManager);
+        PlayerWorldOverlayPanel.Draw(runManager);
 
         switch (runManager.CurrentState)
         {

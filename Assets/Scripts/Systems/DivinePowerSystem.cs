@@ -1,4 +1,3 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -12,9 +11,16 @@ public sealed class DivinePowerSystem
         public DivinePowerEffectConfigData effect;
     }
 
+    private sealed class PowerRuntimeState
+    {
+        public DivinePowerSeedData power;
+        public int currentCharges;
+        public readonly List<float> rechargeTimers = new List<float>();
+    }
+
     private readonly IContentRepository contentRepository;
     private readonly List<DivinePowerSeedData> equippedPowers = new List<DivinePowerSeedData>();
-    private readonly Dictionary<string, float> cooldownRemainingByPowerId = new Dictionary<string, float>();
+    private readonly Dictionary<string, PowerRuntimeState> powerStatesById = new Dictionary<string, PowerRuntimeState>();
     private readonly List<ActiveTimedEffect> activeTimedEffects = new List<ActiveTimedEffect>();
 
     private int companionSegmentsRemaining;
@@ -29,7 +35,7 @@ public sealed class DivinePowerSystem
     public void EquipPowers(IReadOnlyList<string> powerIds)
     {
         equippedPowers.Clear();
-        cooldownRemainingByPowerId.Clear();
+        powerStatesById.Clear();
         activeTimedEffects.Clear();
         companionSegmentsRemaining = 0;
 
@@ -43,7 +49,11 @@ public sealed class DivinePowerSystem
                 continue;
 
             equippedPowers.Add(power);
-            cooldownRemainingByPowerId[power.powerId] = 0f;
+            powerStatesById[power.powerId] = new PowerRuntimeState
+            {
+                power = power,
+                currentCharges = BalanceConfig.DivinePowerMaxCharges
+            };
         }
     }
 
@@ -52,19 +62,24 @@ public sealed class DivinePowerSystem
         if (deltaTime <= 0f)
             return;
 
-        List<string> keys = cooldownRemainingByPowerId.Keys.ToList();
-        for (int i = 0; i < keys.Count; i++)
+        foreach (PowerRuntimeState state in powerStatesById.Values)
         {
-            cooldownRemainingByPowerId[keys[i]] = Mathf.Max(0f, cooldownRemainingByPowerId[keys[i]] - deltaTime);
+            for (int i = state.rechargeTimers.Count - 1; i >= 0; i--)
+            {
+                state.rechargeTimers[i] -= deltaTime;
+                if (state.rechargeTimers[i] <= 0f)
+                {
+                    state.rechargeTimers.RemoveAt(i);
+                    state.currentCharges = Mathf.Min(GetMaxCharges(state.power.powerId), state.currentCharges + 1);
+                }
+            }
         }
 
         for (int i = activeTimedEffects.Count - 1; i >= 0; i--)
         {
             activeTimedEffects[i].remainingSeconds -= deltaTime;
             if (activeTimedEffects[i].remainingSeconds <= 0f)
-            {
                 activeTimedEffects.RemoveAt(i);
-            }
         }
 
         ApplyCurrentBonuses(hero);
@@ -94,37 +109,90 @@ public sealed class DivinePowerSystem
         }
 
         DivinePowerSeedData power = equippedPowers[slotIndex];
-        if (GetCooldownRemaining(power.powerId) > 0f)
+        if (!powerStatesById.TryGetValue(power.powerId, out PowerRuntimeState state))
         {
-            feedback = $"{power.displayName} encara en reutilitzacio.";
+            feedback = "Poder no disponible.";
             return false;
         }
+
+        if (state.currentCharges <= 0)
+        {
+            float cooldown = GetCooldownRemaining(power.powerId);
+            feedback = cooldown > 0.01f
+                ? $"{power.displayName} sense carregues. Propera en {Mathf.CeilToInt(cooldown)}s."
+                : $"{power.displayName} sense carregues.";
+            return false;
+        }
+
+        state.currentCharges -= 1;
+        if (power.cooldownSeconds > 0)
+            state.rechargeTimers.Add(power.cooldownSeconds);
 
         DivinePowerEffectConfigData effect = JsonSeedParser.ParseDivinePowerEffect(power.effectConfigJson);
         if (power.durationSeconds > 0)
         {
-            activeTimedEffects.Add(new ActiveTimedEffect
+            ActiveTimedEffect activeEffect = activeTimedEffects.Find(item => item.powerId == power.powerId);
+            if (activeEffect == null)
             {
-                powerId = power.powerId,
-                remainingSeconds = power.durationSeconds,
-                effect = effect
-            });
+                activeTimedEffects.Add(new ActiveTimedEffect
+                {
+                    powerId = power.powerId,
+                    remainingSeconds = power.durationSeconds,
+                    effect = effect
+                });
+            }
+            else
+            {
+                activeEffect.remainingSeconds = power.durationSeconds;
+                activeEffect.effect = effect;
+            }
         }
 
         if (effect.spawnCompanion)
-        {
             companionSegmentsRemaining = Mathf.Max(companionSegmentsRemaining, Mathf.Max(1, effect.durationSegments));
-        }
 
-        cooldownRemainingByPowerId[power.powerId] = power.cooldownSeconds;
         ApplyCurrentBonuses(hero);
-        feedback = $"Activat: {power.displayName}.";
+        feedback = $"Activat: {power.displayName}. Carregues {state.currentCharges}/{GetMaxCharges(power.powerId)}.";
         return true;
+    }
+
+    public int GetCurrentCharges(string powerId)
+    {
+        return powerStatesById.TryGetValue(powerId, out PowerRuntimeState state) ? state.currentCharges : 0;
+    }
+
+    public int GetMaxCharges(string powerId)
+    {
+        return BalanceConfig.DivinePowerMaxCharges;
     }
 
     public float GetCooldownRemaining(string powerId)
     {
-        return cooldownRemainingByPowerId.TryGetValue(powerId, out float value) ? value : 0f;
+        if (!powerStatesById.TryGetValue(powerId, out PowerRuntimeState state) || state.rechargeTimers.Count == 0)
+            return 0f;
+
+        float next = state.rechargeTimers[0];
+        for (int i = 1; i < state.rechargeTimers.Count; i++)
+            next = Mathf.Min(next, state.rechargeTimers[i]);
+        return Mathf.Max(0f, next);
+    }
+
+    public float GetCooldownNormalized(string powerId)
+    {
+        if (!powerStatesById.TryGetValue(powerId, out PowerRuntimeState state) || state.power == null || state.power.cooldownSeconds <= 0)
+            return 0f;
+
+        float remaining = GetCooldownRemaining(powerId);
+        if (remaining <= 0f)
+            return 0f;
+
+        return Mathf.Clamp01(remaining / state.power.cooldownSeconds);
+    }
+
+    public float GetActiveRemaining(string powerId)
+    {
+        ActiveTimedEffect activeEffect = activeTimedEffects.Find(item => item.powerId == powerId);
+        return activeEffect != null ? Mathf.Max(0f, activeEffect.remainingSeconds) : 0f;
     }
 
     public string GetEffectiveHeroMode(string baseMode)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -63,6 +63,7 @@ public class WorldGrid : MonoBehaviour
         GenerateEnemies(runtime, enemyTemplate);
         GenerateChests(runtime);
         PlaceGoal(runtime);
+        CenterCameraOnSegment();
     }
 
     private void GenerateCells(SegmentRuntimeData runtime)
@@ -179,6 +180,26 @@ public class WorldGrid : MonoBehaviour
         goalTile.SetGridPosition(runtime.ExitPosition);
     }
 
+
+    private void CenterCameraOnSegment()
+    {
+        Camera camera = Camera.main;
+        if (camera == null || Width <= 0 || Height <= 0)
+            return;
+
+        Vector3 position = camera.transform.position;
+        position.x = (Width - 1) * cellSize * 0.5f;
+        position.y = (Height - 1) * cellSize * 0.5f;
+        camera.transform.position = position;
+
+        if (!camera.orthographic)
+            return;
+
+        float margin = 1.75f;
+        float heightHalf = Height * cellSize * 0.5f + margin;
+        float widthHalf = Width * cellSize * 0.5f / Mathf.Max(0.1f, camera.aspect) + margin;
+        camera.orthographicSize = Mathf.Max(heightHalf, widthHalf);
+    }
     private void ClearCurrentSegment()
     {
         EnsureSegmentRoot();
@@ -517,3 +538,4 @@ public static class GridPathfinding
         return Mathf.Abs(from.x - to.x) + Mathf.Abs(from.y - to.y);
     }
 }
+

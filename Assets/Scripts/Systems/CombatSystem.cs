@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 public struct CombatSimulationResult
 {
@@ -76,6 +76,7 @@ public static class CombatSystem
         if (heroDamageTaken > 0)
             hero.ApplyDirectDamage(heroDamageTaken);
 
+        hero.RegisterCombatExchange(enemyDamageTaken, heroDamageTaken);
         return simulation;
     }
 
@@ -83,6 +84,8 @@ public static class CombatSystem
     {
         int damage = CalculateDamage(enemy.Attack, hero.Defense);
         hero.ApplyDirectDamage(damage);
+        hero.RegisterCombatExchange(0, damage);
         return damage;
     }
 }
+

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -59,6 +59,18 @@ public class RelicEffectConfigData
 }
 
 [Serializable]
+public class ShopOfferEffectConfigData
+{
+    public int heal;
+    public int attackBonus;
+    public int defenseBonus;
+    public float speedMultiplierBonus = 1f;
+    public int durationSegments;
+    public bool rerollCards;
+    public bool spawnCompanion;
+}
+
+[Serializable]
 public class SegmentModifierRuntimeData
 {
     public float heroSpeedMultiplier = 1f;
@@ -116,9 +128,13 @@ public class ShopOfferData
     public string offerId;
     public string title;
     public string description;
+    public string artKey;
     public string offerType;
+    public string rewardType;
     public string rewardId;
     public int quantity = 1;
+    public int durationSegments;
     public int cost;
     public float value;
+    public string effectConfigJson;
 }

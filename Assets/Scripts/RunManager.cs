@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class RunManager : MonoBehaviour
 {
@@ -70,6 +71,34 @@ public class RunManager : MonoBehaviour
     public string SummaryTitle => summaryTitle;
     public string SummaryMessage => summaryMessage;
     public string FeedbackMessage => feedbackMessage;
+    public bool CanUseDivinePowers => currentState == RunState.ExploringSegment;
+
+    public string GetCurrentRunResultId()
+    {
+        switch (currentState)
+        {
+            case RunState.Completed:
+                return "run_completed";
+            case RunState.Failed:
+                return "run_failed";
+            default:
+                return string.Empty;
+        }
+    }
+
+    public string GetCurrentRunResultArtKey()
+    {
+        if (contentRepository == null)
+            return string.Empty;
+
+        string resultId = GetCurrentRunResultId();
+        if (string.IsNullOrWhiteSpace(resultId))
+            return string.Empty;
+
+        RunResultSeedData result = contentRepository.GetRunResult(resultId);
+        return result != null ? result.artKey : string.Empty;
+    }
+
     public float GetDivinePowerCooldownSeconds(int slotIndex)
     {
         if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
@@ -77,6 +106,39 @@ public class RunManager : MonoBehaviour
 
         return divinePowerSystem.GetCooldownRemaining(EquippedDivinePowers[slotIndex].powerId);
     }
+
+    public float GetDivinePowerCooldownNormalized(int slotIndex)
+    {
+        if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
+            return 0f;
+
+        return divinePowerSystem.GetCooldownNormalized(EquippedDivinePowers[slotIndex].powerId);
+    }
+
+    public int GetDivinePowerCharges(int slotIndex)
+    {
+        if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
+            return 0;
+
+        return divinePowerSystem.GetCurrentCharges(EquippedDivinePowers[slotIndex].powerId);
+    }
+
+    public int GetDivinePowerMaxCharges(int slotIndex)
+    {
+        if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
+            return 0;
+
+        return divinePowerSystem.GetMaxCharges(EquippedDivinePowers[slotIndex].powerId);
+    }
+
+    public float GetDivinePowerActiveSeconds(int slotIndex)
+    {
+        if (divinePowerSystem == null || slotIndex < 0 || slotIndex >= EquippedDivinePowers.Count)
+            return 0f;
+
+        return divinePowerSystem.GetActiveRemaining(EquippedDivinePowers[slotIndex].powerId);
+    }
+
     public string EffectiveHeroMode => divinePowerSystem == null || currentRun == null
         ? BalanceConfig.DefaultHeroMode
         : divinePowerSystem.GetEffectiveHeroMode(currentRun.heroMode);
@@ -101,10 +163,20 @@ public class RunManager : MonoBehaviour
 
     void Update()
     {
-        if (divinePowerSystem != null && player != null)
-        {
+        if (divinePowerSystem != null && player != null && currentState == RunState.ExploringSegment)
             divinePowerSystem.Tick(Time.deltaTime, player);
-        }
+
+        if (!CanUseDivinePowers)
+            return;
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return;
+
+        if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame)
+            TryActivateDivinePowerSlot(0);
+        if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame)
+            TryActivateDivinePowerSlot(1);
     }
 
     public void Bootstrap()
@@ -136,7 +208,7 @@ public class RunManager : MonoBehaviour
         EnsureProgressConsistency();
 
         economySystem = new EconomySystem(playerProgress, playerConsumables);
-        shopSystem = new ShopSystem();
+        shopSystem = new ShopSystem(contentRepository);
         divinePowerSystem = new DivinePowerSystem(contentRepository);
         segmentGenerator = new SegmentGenerator(contentRepository, runRepository);
 
@@ -402,7 +474,6 @@ public class RunManager : MonoBehaviour
         feedbackMessage = $"Segment {currentSegment.segment.segmentIndex}: {currentSegment.card.displayName}.";
         runRepository.UpdateRun(currentRun);
     }
-
     private void ApplySegmentBonuses(SegmentRuntimeData segment)
     {
         int attackBonus = 0;

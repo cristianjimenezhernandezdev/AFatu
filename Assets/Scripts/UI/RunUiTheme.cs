@@ -47,6 +47,7 @@ public static class RunUiTheme
             fontStyle = FontStyle.Bold,
             richText = true,
             wordWrap = true,
+            alignment = TextAnchor.UpperLeft,
             normal = { textColor = new Color32(244, 233, 209, 255) }
         };
 
@@ -55,6 +56,7 @@ public static class RunUiTheme
             fontSize = Mathf.RoundToInt(16f * scale),
             fontStyle = FontStyle.Bold,
             wordWrap = true,
+            alignment = TextAnchor.UpperLeft,
             normal = { textColor = new Color32(220, 208, 176, 255) }
         };
 
@@ -63,6 +65,7 @@ public static class RunUiTheme
             fontSize = Mathf.RoundToInt(14f * scale),
             wordWrap = true,
             richText = true,
+            alignment = TextAnchor.UpperLeft,
             normal = { textColor = new Color32(233, 230, 221, 255) }
         };
 
@@ -86,7 +89,14 @@ public static class RunUiTheme
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleCenter,
             padding = new RectOffset(10, 10, 6, 6),
-            normal = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) }
+            normal = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            hover = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            active = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            focused = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            onNormal = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            onHover = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            onActive = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) },
+            onFocused = { background = whiteTexture, textColor = new Color32(38, 30, 24, 255) }
         };
 
         primaryButtonStyle = new GUIStyle(GUI.skin.button)
@@ -98,7 +108,12 @@ public static class RunUiTheme
             padding = new RectOffset(14, 14, 10, 10),
             normal = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
             hover = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
-            active = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) }
+            active = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
+            focused = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
+            onNormal = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
+            onHover = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
+            onActive = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) },
+            onFocused = { background = whiteTexture, textColor = new Color32(23, 18, 16, 255) }
         };
 
         cardButtonStyle = new GUIStyle(primaryButtonStyle)

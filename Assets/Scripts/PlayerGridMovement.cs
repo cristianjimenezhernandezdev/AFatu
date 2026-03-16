@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 public class PlayerGridMovement : MonoBehaviour
@@ -23,6 +23,10 @@ public class PlayerGridMovement : MonoBehaviour
     private int divineDefenseBonus;
     private float divineSpeedMultiplier = 1f;
 
+    private float lastCombatTimestamp = -999f;
+    private int lastCombatDamageDealt;
+    private int lastCombatDamageTaken;
+
     public event Action<Vector2Int> ArrivedAtCell;
     public event Action<int, int> HealthChanged;
     public event Action Died;
@@ -31,6 +35,10 @@ public class PlayerGridMovement : MonoBehaviour
     public bool IsMoving => isMoving;
     public bool IsPaused => isPaused;
     public bool CanTakeTurn => !isPaused && !isMoving;
+    public bool HasRecentCombat => Time.time - lastCombatTimestamp <= 1.35f;
+    public float RecentCombatPulse => HasRecentCombat ? 1f - Mathf.Clamp01((Time.time - lastCombatTimestamp) / 1.35f) : 0f;
+    public int LastCombatDamageDealt => lastCombatDamageDealt;
+    public int LastCombatDamageTaken => lastCombatDamageTaken;
 
     public int CurrentHealth { get; private set; } = BalanceConfig.HeroBaseMaxHealth;
     public int MaxHealth => Mathf.Max(1, baseStats.maxHealth + segmentMaxHealthBonus);
@@ -132,6 +140,13 @@ public class PlayerGridMovement : MonoBehaviour
         }
     }
 
+    public void RegisterCombatExchange(int damageDealt, int damageTaken)
+    {
+        lastCombatTimestamp = Time.time;
+        lastCombatDamageDealt = Mathf.Max(0, damageDealt);
+        lastCombatDamageTaken = Mathf.Max(0, damageTaken);
+    }
+
     public void ResetForRun()
     {
         baseStats = new HeroStatsData();
@@ -142,6 +157,9 @@ public class PlayerGridMovement : MonoBehaviour
         divineAttackBonus = 0;
         divineDefenseBonus = 0;
         divineSpeedMultiplier = 1f;
+        lastCombatTimestamp = -999f;
+        lastCombatDamageDealt = 0;
+        lastCombatDamageTaken = 0;
         CurrentHealth = baseStats.maxHealth;
         isPaused = false;
         isMoving = false;

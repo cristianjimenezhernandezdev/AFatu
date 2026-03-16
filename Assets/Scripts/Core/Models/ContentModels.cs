@@ -9,6 +9,8 @@ public class LocalContentSeed
     public RelicSeedData[] relics = Array.Empty<RelicSeedData>();
     public ConsumableSeedData[] consumables = Array.Empty<ConsumableSeedData>();
     public DivinePowerSeedData[] divinePowers = Array.Empty<DivinePowerSeedData>();
+    public ShopOfferSeedData[] shopOffers = Array.Empty<ShopOfferSeedData>();
+    public RunResultSeedData[] runResults = Array.Empty<RunResultSeedData>();
     public CardSeedData[] cards = Array.Empty<CardSeedData>();
     public CardEnemyPoolSeedData[] cardEnemyPool = Array.Empty<CardEnemyPoolSeedData>();
     public CardModifierPoolSeedData[] cardModifierPool = Array.Empty<CardModifierPoolSeedData>();
@@ -51,6 +53,7 @@ public class WorldModifierSeedData
     public string modifierId;
     public string displayName;
     public string description;
+    public string artKey;
     public string modifierType;
     public string rarity;
     public string stackMode;
@@ -65,6 +68,7 @@ public class RelicSeedData
     public string relicId;
     public string displayName;
     public string description;
+    public string artKey;
     public string rarity;
     public string effectConfigJson;
     public bool isActive = true;
@@ -76,6 +80,7 @@ public class ConsumableSeedData
     public string consumableId;
     public string displayName;
     public string description;
+    public string artKey;
     public int maxStack = 1;
     public string effectConfigJson;
     public bool isActive = true;
@@ -87,6 +92,7 @@ public class DivinePowerSeedData
     public string powerId;
     public string displayName;
     public string description;
+    public string artKey;
     public string powerType;
     public int cooldownSeconds;
     public int durationSeconds;
@@ -98,11 +104,41 @@ public class DivinePowerSeedData
 }
 
 [Serializable]
+public class ShopOfferSeedData
+{
+    public string offerId;
+    public string displayName;
+    public string description;
+    public string artKey;
+    public string offerType;
+    public int costGold;
+    public string rewardType;
+    public string rewardId;
+    public int rewardQuantity = 1;
+    public int durationSegments;
+    public string effectConfigJson;
+    public int sortOrder;
+    public bool isActive = true;
+}
+
+[Serializable]
+public class RunResultSeedData
+{
+    public string resultId;
+    public string displayName;
+    public string description;
+    public string artKey;
+    public int sortOrder;
+    public bool isActive = true;
+}
+
+[Serializable]
 public class CardSeedData
 {
     public string cardId;
     public string displayName;
     public string description;
+    public string artKey;
     public bool startsUnlocked;
     public string biomeId;
     public string floorColorHex;
