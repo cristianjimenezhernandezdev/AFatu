@@ -7,18 +7,18 @@ public class ProceduralGoalRenderer : MonoBehaviour
 {
     private static readonly string[] DoorShape =
     {
-        "....FFFF....",
-        "...FAAAF....",
-        "..FAAGAAF...",
-        ".FASSSSSAF..",
-        ".FSDDDDDSF..",
-        ".FSDPPPDSF..",
-        ".FSDPPPDSF..",
-        ".FSDPPPDSF..",
-        ".FSDDDDDSF..",
-        ".FSSDDDDSF..",
-        "..F....F....",
-        "...FFFF....."
+        "...OFFFFO...",
+        "..OFAGAFO...",
+        ".OFAGGGGAFO.",
+        ".FASSSSSSAF.",
+        ".FSDDDDDSAF.",
+        "OFSDPPPDSAFO",
+        "OFSDPLPDSAFO",
+        "OFSDPPPDSAFO",
+        ".FSDDDDDSAF.",
+        ".FSSMMMSSAF.",
+        ".OFM..MMFO..",
+        "..OFFFFFO..."
     };
 
     [SerializeField] private float pixelSize = 0.08f;
@@ -121,20 +121,23 @@ public class ProceduralGoalRenderer : MonoBehaviour
 
     private bool TryResolveColor(char cell, string biomeId, out Color color)
     {
-        GetPalette(biomeId, out Color frame, out Color stone, out Color accent, out Color portal);
+        GetPalette(biomeId, out Color frame, out Color stone, out Color accent, out Color portal, out Color outline, out Color metal);
         switch (cell)
         {
+            case 'O': color = outline; return true;
             case 'F': color = frame; return true;
             case 'S': color = stone; return true;
             case 'A': color = accent; return true;
             case 'D': color = ProceduralPixelUtility.Multiply(frame, 0.7f); return true;
             case 'G': color = Color.Lerp(accent, Color.white, 0.24f); return true;
+            case 'L': color = Color.Lerp(portal, Color.white, 0.38f); return true;
+            case 'M': color = metal; return true;
             case 'P': color = portal; return true;
             default: color = default; return false;
         }
     }
 
-    private void GetPalette(string biomeId, out Color frame, out Color stone, out Color accent, out Color portal)
+    private void GetPalette(string biomeId, out Color frame, out Color stone, out Color accent, out Color portal, out Color outline, out Color metal)
     {
         switch ((biomeId ?? string.Empty).ToLowerInvariant())
         {
@@ -143,18 +146,24 @@ public class ProceduralGoalRenderer : MonoBehaviour
                 stone = new Color32(42, 57, 35, 255);
                 accent = new Color32(174, 214, 136, 255);
                 portal = new Color32(103, 226, 175, 255);
+                outline = new Color32(25, 40, 25, 255);
+                metal = new Color32(129, 146, 110, 255);
                 break;
             case "swamp":
                 frame = new Color32(88, 98, 64, 255);
                 stone = new Color32(54, 73, 52, 255);
                 accent = new Color32(186, 173, 92, 255);
                 portal = new Color32(120, 216, 171, 255);
+                outline = new Color32(33, 44, 34, 255);
+                metal = new Color32(118, 125, 92, 255);
                 break;
             case "crypt":
                 frame = new Color32(121, 127, 160, 255);
                 stone = new Color32(72, 75, 97, 255);
                 accent = new Color32(210, 220, 255, 255);
                 portal = new Color32(168, 176, 255, 255);
+                outline = new Color32(34, 36, 53, 255);
+                metal = new Color32(146, 152, 182, 255);
                 break;
             case "ruins":
             default:
@@ -162,6 +171,8 @@ public class ProceduralGoalRenderer : MonoBehaviour
                 stone = new Color32(86, 78, 70, 255);
                 accent = new Color32(237, 207, 124, 255);
                 portal = new Color32(128, 215, 239, 255);
+                outline = new Color32(44, 37, 32, 255);
+                metal = new Color32(160, 155, 145, 255);
                 break;
         }
     }

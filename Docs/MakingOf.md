@@ -1543,3 +1543,249 @@ Aquesta iteracio es important dins del `MakingOf` perque no introdueix una gran 
 - i els elements visuals del mon han de dependre del sistema procedural, no de valors arbitraris d'escena.
 
 Es, en definitiva, una fase de poliment estructural: menys espectacular que afegir una mecanica nova, pero molt rellevant per fer que el vertical slice es percebi com una experiencia mes coherent i mes professional.
+
+## Actualitzacio posterior. Refinament del pixel art procedural de personatges, moviment i entorn
+
+En una iteracio posterior s'ha fet una passada de qualitat centrada en la lectura visual del joc moment a moment. La necessitat era clara: el loop ja funcionava, pero el conjunt encara podia guanyar molta mes presencia si l'heroi, els enemics i el mapa es movien i es representaven amb mes intencio.
+
+### Objectiu d'aquesta iteracio
+
+Els objectius principals d'aquesta fase han estat:
+
+- fer que l'heroi tingui una silueta mes reconeixible i mes heroica;
+- donar als enemics una identitat pixel-art mes marcada;
+- suavitzar el moviment perque no sembli una translacio rigida entre caselles;
+- reforcar el modelat de l'entorn perque el segment tingui relleu, atmosfera i personalitat per bioma.
+
+### Millores aplicades al player
+
+S'ha retocat:
+
+- `Assets/Scripts/ProceduralPlayerRenderer.cs`
+
+La figura procedural del player s'ha enriquit en diversos fronts:
+
+- s'ha redefinit la silueta amb mes detall;
+- s'hi ha afegit contorn i ombra;
+- la lectura visual de l'arma queda molt mes clara i l'heroi ja sembla portar una espasa;
+- el renderer ara pot invertir-se segons la direccio horitzontal del moviment;
+- s'hi ha afegit una respiracio idle, balanceig i una petita inclinacio en desplacament.
+
+El resultat es que el personatge principal deixa de semblar nomes una icona funcional i comenca a transmetre presencia, direccio i intencio.
+
+### Millores aplicades als enemics
+
+S'ha retocat:
+
+- `Assets/Scripts/ProceduralEnemyRenderer.cs`
+
+Els enemics procedurals s'han refinat per donar-los millor lectura en pantalla:
+
+- s'han redibuixat les formes de `skeleton`, `bat`, `zombie` i `ghost_elite`;
+- s'han afegit mes capes de color, contrast, ombra i accents;
+- els enemics ara es poden orientar segons el sentit del moviment;
+- les animacions visuals de pas, flotacio o aleteig s'han fet mes expressives.
+
+Aquesta passada reforca la diferenciacio entre tipus d'enemic i fa mes clara la lectura del camp de joc.
+
+### Millores aplicades al moviment
+
+S'han retocat:
+
+- `Assets/Scripts/PlayerGridMovement.cs`
+- `Assets/Scripts/EnemyGridMovement.cs`
+
+El moviment ja no es limita a un `MoveTowards` lineal pur. Ara s'hi ha introduit:
+
+- una interpolacio mes suau d'inici i final de passa;
+- un arc de moviment que fa que el desplacament tingui pes visual;
+- una durada minima configurable per evitar sensacions brusques;
+- una arribada mes neta a la casella objectiu.
+
+En termes de sensacio de joc, aquesta decisio fa que tant l'heroi com els enemics semblin actors dins del mon i no peces que simplement canvien de coordenada.
+
+### Millores aplicades a l'entorn procedural
+
+S'han retocat:
+
+- `Assets/Scripts/ProceduralEnvironmentFactory.cs`
+- `Assets/Scripts/WorldGrid.cs`
+
+La capa visual de l'entorn ha rebut una ampliacio important:
+
+- cada casella del terra te ara una base mes rica i mes modulada;
+- s'han afegit ombres de vora i relleu segons les parets adjacents;
+- el terra pot mostrar esquerdes, pedres, vegetacio, taques o tolls segons el bioma;
+- els arbres i les ruines tenen una silueta mes treballada;
+- els murs es refresquen junt amb les caselles veines per mantenir la coherencia visual;
+- el `WorldBackground` es tenyeix segons la paleta del segment per reforcar l'atmosfera general.
+
+Amb aixo, l'entorn deixa de ser nomes un suport funcional per al gameplay i passa a participar activament en la direccio artistica del vertical slice.
+
+### Valor d'aquesta fase dins del projecte
+
+Aquesta iteracio es rellevant dins del `MakingOf` perque consolida un pas important: el projecte no nomes funciona, sino que comenca a presentar-se amb una capa visual coherent entre moviment, personatges i biomes.
+
+Els beneficis principals d'aquesta passada son:
+
+- mes llegibilitat visual en exploracio i combat;
+- millor identitat del player i dels enemics;
+- una sensacio de moviment mes polida;
+- i un entorn mes creible dins del llenguatge procedural del projecte.
+
+En resum, aquesta fase no afegeix una mecanica nova, pero si eleva molt la percepcio de qualitat del vertical slice i deixa la base preparada per futures capes de poliment artistic.
+
+## Actualitzacio posterior. Implementacio del menu principal i de l'arbre de millores
+
+En una fase posterior s'ha abordat una necessitat que ja apareixia de manera recurrent a la documentacio del projecte: el vertical slice necessitava deixar de començar directament dins la run i passar a tenir una capa d'entrada de meta-joc.
+
+La decisio presa ha estat implementar una primera versio funcional del:
+
+- menu principal;
+- hub de seleccio de preferencies de partida;
+- i pantalla d'arbre de millores.
+
+La part visual del layout continua pensada per muntar-se manualment des de Unity, pero el flux, les dades i els scripts ja queden preparats.
+
+### Relacio directa amb la BDD i el model de progres
+
+Aquesta implementacio s'ha alineat explicitament amb la BDD i amb el model local-first del projecte. Els scripts del menu es recolzen en:
+
+- `players`
+- `player_progress`
+- `player_card_unlocks`
+- `player_divine_power_unlocks`
+- `biomes`
+- `cards`
+- `divine_power_definitions`
+
+Aixo es important perquè evita que el menu sigui una UI separada del joc real. El hub principal llegeix el mateix progres persistent que fa servir la run.
+
+### Scripts nous i scripts ampliats
+
+S'han afegit:
+
+- `Assets/Scripts/UI/Canvas/MainMenuCanvasController.cs`
+- `Assets/Scripts/UI/Canvas/MainMenuHomeCanvasPanel.cs`
+- `Assets/Scripts/UI/Canvas/TechTreeCanvasPanel.cs`
+- `Assets/Scripts/UI/Canvas/TechTreeNodeCanvasSlot.cs`
+
+I s'han ampliat:
+
+- `Assets/Scripts/RunManager.cs`
+- `Assets/Scripts/Systems/EconomySystem.cs`
+
+### Paper de cada peça
+
+#### `MainMenuCanvasController`
+
+Actua com a coordinador del menu:
+
+- obre el hub en arrencar;
+- bloqueja l'`autoStart` del `RunManager` mentre el menu esta visible;
+- permet navegar entre pantalla principal i arbre de millores;
+- i llança la run quan el jugador prem `Play`.
+
+#### `MainMenuHomeCanvasPanel`
+
+Mostra el resum del perfil actiu:
+
+- nom del jugador;
+- esmeraldes;
+- runs completades i fallides;
+- segment maxim assolit;
+- resum de cartes, poders i biomes desbloquejats;
+- longitud de run seleccionada;
+- i mode inicial de l'heroi.
+
+També deixa preparada la seleccio de:
+
+- run curta o llarga;
+- `prudent`
+- `aggressive`
+- `escape`
+
+#### `TechTreeCanvasPanel`
+
+Construeix una primera versio funcional de l'arbre de millores a partir de dades reals del projecte. Actualment contempla nodes per a:
+
+- run llarga;
+- biomes;
+- poders divins;
+- cartes.
+
+#### `TechTreeNodeCanvasSlot`
+
+Representa cada node individual i separa clarament:
+
+- branca o categoria;
+- titol i descripcio;
+- cost;
+- estat;
+- artwork;
+- i boto d'accio.
+
+### Decisio important sobre costos i desbloquejos
+
+No totes les peces del model actual tenen un cost de desbloqueig definit a SQL.
+
+Per aquest motiu s'ha pres una decisio de transicio:
+
+- els poders divins fan servir el `unlockCost` real del seed;
+- la run llarga es tracta com una millora meta fixa;
+- els biomes fan servir un cost simple per categoria;
+- les cartes fan servir un cost derivat de `baseDifficulty` i `rewardTier`.
+
+Aquesta decisio no pretén tancar definitivament el balanc del meta-joc, sino permetre que la pantalla de millores funcioni ja amb dades consistents mentre el model continua evolucionant.
+
+### Impacte sobre l'arquitectura del projecte
+
+L'entrada al joc deixa de dependre exclusivament de l'escena de gameplay.
+
+Ara el projecte queda preparat per un flux mes propi d'un joc amb meta-progres:
+
+1. obrir joc;
+2. entrar al menu principal;
+3. revisar progres i preferencies;
+4. desbloquejar millores;
+5. llançar la run.
+
+En paral.lel, el `RunManager` continua sent l'orquestrador de la run, pero ja no ha d'imposar que la partida comenci immediatament.
+
+### Documentacio complementaria
+
+Per facilitar el muntatge manual a Unity, aquesta fase queda reforcada amb instruccions concretes a:
+
+- `Docs/MAIN_MENU_PROFILE_AND_PROGRESS_PLAN.md`
+
+Alli s'hi descriu:
+
+- quins GameObjects cal crear al `Canvas`;
+- quins components s'han d'afegir;
+- quins camps s'han d'assignar a Inspector;
+- i quina jerarquia es recomana per al prefab dels nodes de l'arbre.
+
+### Ajustos posteriors durant el muntatge real a Unity
+
+Una vegada traslladada aquesta primera versio funcional a l'editor de Unity, s'han fet dos ajustos importants que formen part del resultat final i que convé deixar documentats.
+
+El primer ha estat de tipus tecnic: durant la connexio real del `Canvas_MainMenu` s'ha detectat un error de compilacio a `MainMenuCanvasController`, provocat per una referencia a `FirstOrDefault` sense l'espai de noms necessari. La incidència s'ha corregit afegint `System.Linq`, de manera que el component ja es pot assignar correctament des de l'Inspector.
+
+El segon ajust ha estat de tipus d'usabilitat visual dins de l'arbre de millores. En la primera versio, quan un node no es podia comprar, el cost podia arribar a mostrar-se com `--`. Despres de provar-ho en context real, s'ha decidit que el cost s'ha de veure sempre, i que la diferència entre una millora disponible o no disponible s'ha d'expressar nomes a traves de l'estat del boto i del node.
+
+Aixo dona un resultat molt mes clar:
+
+- el jugador veu sempre quantes esmeraldes costa cada millora;
+- pot distingir millor entre "no la tinc desbloquejada" i "no em arriba encara el pressupost";
+- i l'arbre de tecnologies transmet millor la progressio economica del meta-joc.
+
+### Valor d'aquesta fase dins del vertical slice
+
+Aquesta iteracio es molt rellevant perquè introdueix una capa de producte que el projecte ja necessitava:
+
+- dona context al progres persistent;
+- visibilitza les esmeraldes i els desbloquejos;
+- converteix el meta-joc en una peça jugable i no nomes documental;
+- i deixa preparada la base per futures pantalles de perfil, poders, opcions o seleccio de perfils.
+
+En resum, aquesta fase marca el pas des d'un vertical slice centrat exclusivament en el loop de run cap a una estructura mes completa, on el joc ja te entrada, hub i progressio entre partides.

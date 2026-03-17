@@ -18,6 +18,7 @@ public class RunManager : MonoBehaviour
     }
 
     public static RunManager Instance { get; private set; }
+    public static bool SuppressAutoStartForMenu { get; set; }
 
     [Header("References")]
     [SerializeField] private WorldGrid worldGrid;
@@ -72,6 +73,15 @@ public class RunManager : MonoBehaviour
     public string SummaryMessage => summaryMessage;
     public string FeedbackMessage => feedbackMessage;
     public bool CanUseDivinePowers => currentState == RunState.ExploringSegment;
+    public bool IsBootstrapped => contentRepository != null;
+    public PlayerProfileData PlayerProfile => playerProfile;
+    public PlayerProgressData PlayerProgress => playerProgress;
+    public IReadOnlyList<PlayerCardUnlockData> PlayerCardUnlocks => playerCardUnlocks;
+    public IReadOnlyList<PlayerDivinePowerUnlockData> PlayerDivinePowerUnlocks => playerDivinePowerUnlocks;
+    public IReadOnlyList<PlayerConsumableStackData> PlayerConsumables => playerConsumables;
+    public IReadOnlyList<CardSeedData> AllCards => contentRepository?.GetCards() ?? System.Array.Empty<CardSeedData>();
+    public IReadOnlyList<DivinePowerSeedData> AllDivinePowers => contentRepository?.GetDivinePowers() ?? System.Array.Empty<DivinePowerSeedData>();
+    public IReadOnlyList<BiomeSeedData> AllBiomes => contentRepository?.GetBiomes() ?? System.Array.Empty<BiomeSeedData>();
 
     public string GetCurrentRunResultId()
     {
@@ -157,7 +167,7 @@ public class RunManager : MonoBehaviour
     void Start()
     {
         Bootstrap();
-        if (autoStartOnPlay)
+        if (autoStartOnPlay && !SuppressAutoStartForMenu)
             StartRun();
     }
 
@@ -252,6 +262,190 @@ public class RunManager : MonoBehaviour
         SaveProgression();
 
         EnterNextSegment(startingCardId);
+    }
+
+    public void SetPreferredRunLength(int runLength)
+    {
+        if (playerProfile == null)
+            return;
+
+        playerProfile.preferredRunLength = runLength >= BalanceConfig.DefaultLongRunLength && playerProgress != null && playerProgress.run7Unlocked
+            ? BalanceConfig.DefaultLongRunLength
+            : BalanceConfig.DefaultShortRunLength;
+        SaveProgression();
+    }
+
+    public void SetPreferredHeroMode(string heroMode)
+    {
+        if (playerProfile == null || string.IsNullOrWhiteSpace(heroMode))
+            return;
+
+        switch (heroMode)
+        {
+            case "prudent":
+            case "aggressive":
+            case "escape":
+                playerProfile.selectedHeroMode = heroMode;
+                SaveProgression();
+                break;
+        }
+    }
+
+    public bool IsCardUnlocked(string cardId)
+    {
+        return !string.IsNullOrWhiteSpace(cardId) && GetUnlockedCardIds().Contains(cardId);
+    }
+
+    public bool IsDivinePowerUnlocked(string powerId)
+    {
+        return !string.IsNullOrWhiteSpace(powerId) && (playerProgress?.unlockedDivinePowerIds?.Contains(powerId) ?? false);
+    }
+
+    public bool IsBiomeUnlocked(string biomeId)
+    {
+        return !string.IsNullOrWhiteSpace(biomeId) && (playerProgress?.biomesUnlocked?.Contains(biomeId) ?? false);
+    }
+
+    public bool TryUnlockDivinePowerFromMenu(string powerId, out string feedback)
+    {
+        feedback = "No s'ha pogut desbloquejar el poder.";
+        if (contentRepository == null || economySystem == null)
+            return false;
+
+        DivinePowerSeedData power = contentRepository.GetDivinePower(powerId);
+        if (power == null || !power.isActive)
+        {
+            feedback = "Aquest poder no existeix al contingut actiu.";
+            return false;
+        }
+
+        if (IsDivinePowerUnlocked(powerId))
+        {
+            feedback = "Aquest poder ja esta desbloquejat.";
+            return false;
+        }
+
+        int cost = Mathf.Max(0, power.unlockCost);
+        if (!economySystem.TrySpendEmeralds(cost))
+        {
+            feedback = $"Falten {cost - economySystem.CurrentEmeralds} esmeraldes.";
+            return false;
+        }
+
+        playerDivinePowerUnlocks.Add(new PlayerDivinePowerUnlockData
+        {
+            playerId = localPlayerId,
+            powerId = powerId,
+            unlockSource = "tech_tree"
+        });
+        EquipUnlockedDivinePowers();
+        SaveProgression();
+        feedback = $"Poder desbloquejat: {power.displayName}.";
+        return true;
+    }
+
+    public bool TryUnlockCardFromMenu(string cardId, int cost, out string feedback)
+    {
+        feedback = "No s'ha pogut desbloquejar la carta.";
+        if (contentRepository == null || economySystem == null)
+            return false;
+
+        CardSeedData card = contentRepository.GetCard(cardId);
+        if (card == null || !card.isActive)
+        {
+            feedback = "Aquesta carta no existeix al contingut actiu.";
+            return false;
+        }
+
+        if (IsCardUnlocked(cardId))
+        {
+            feedback = "Aquesta carta ja esta desbloquejada.";
+            return false;
+        }
+
+        if (!IsBiomeUnlocked(card.biomeId))
+        {
+            feedback = $"Cal desbloquejar el bioma {RunUiTheme.FormatBiome(card.biomeId)} abans.";
+            return false;
+        }
+
+        int safeCost = Mathf.Max(0, cost);
+        if (!economySystem.TrySpendEmeralds(safeCost))
+        {
+            feedback = $"Falten {safeCost - economySystem.CurrentEmeralds} esmeraldes.";
+            return false;
+        }
+
+        playerCardUnlocks.Add(new PlayerCardUnlockData
+        {
+            playerId = localPlayerId,
+            cardId = cardId,
+            unlockSource = "tech_tree"
+        });
+        SaveProgression();
+        feedback = $"Carta desbloquejada: {card.displayName}.";
+        return true;
+    }
+
+    public bool TryUnlockBiomeFromMenu(string biomeId, int cost, out string feedback)
+    {
+        feedback = "No s'ha pogut desbloquejar el bioma.";
+        if (contentRepository == null || economySystem == null)
+            return false;
+
+        BiomeSeedData biome = contentRepository.GetBiome(biomeId);
+        if (biome == null || !biome.isActive)
+        {
+            feedback = "Aquest bioma no existeix al contingut actiu.";
+            return false;
+        }
+
+        if (IsBiomeUnlocked(biomeId))
+        {
+            feedback = "Aquest bioma ja esta desbloquejat.";
+            return false;
+        }
+
+        int safeCost = Mathf.Max(0, cost);
+        if (!economySystem.TrySpendEmeralds(safeCost))
+        {
+            feedback = $"Falten {safeCost - economySystem.CurrentEmeralds} esmeraldes.";
+            return false;
+        }
+
+        List<string> unlockedBiomes = playerProgress.biomesUnlocked?.ToList() ?? new List<string>();
+        unlockedBiomes.Add(biomeId);
+        playerProgress.biomesUnlocked = unlockedBiomes.Distinct().ToArray();
+        SaveProgression();
+        feedback = $"Bioma desbloquejat: {biome.displayName}.";
+        return true;
+    }
+
+    public bool TryUnlockLongRunFromMenu(int cost, out string feedback)
+    {
+        feedback = "No s'ha pogut desbloquejar la run llarga.";
+        if (economySystem == null || playerProgress == null)
+            return false;
+
+        if (playerProgress.run7Unlocked)
+        {
+            feedback = "La run llarga ja esta disponible.";
+            return false;
+        }
+
+        int safeCost = Mathf.Max(0, cost);
+        if (!economySystem.TrySpendEmeralds(safeCost))
+        {
+            feedback = $"Falten {safeCost - economySystem.CurrentEmeralds} esmeraldes.";
+            return false;
+        }
+
+        playerProgress.run7Unlocked = true;
+        if (playerProfile != null && playerProfile.preferredRunLength < BalanceConfig.DefaultLongRunLength)
+            playerProfile.preferredRunLength = BalanceConfig.DefaultLongRunLength;
+        SaveProgression();
+        feedback = "Run llarga desbloquejada.";
+        return true;
     }
 
     public void SelectCard(int index)

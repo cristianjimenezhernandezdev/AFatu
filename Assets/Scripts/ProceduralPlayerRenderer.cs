@@ -14,44 +14,50 @@ public class ProceduralPlayerRenderer : MonoBehaviour
 
     private static readonly string[] IdleShape =
     {
-        "....TT....",
-        "...TATT...",
-        "..THHHHT..",
-        "..HCSSCH..",
-        ".THCMMCHT.",
-        ".TCCMMCCT.",
-        "..CCMMCC..",
-        "..CLLLLC..",
-        ".LL....LL.",
-        "L..L..L..L"
+        "...TTTT.....",
+        "..THHHHT....",
+        "..THSSHT....",
+        ".OTHAAHTO...",
+        ".OTCCCCCTMM.",
+        ".THCCMMCCTM.",
+        ".OHCCMMCCTM.",
+        ".OCCLLLLCTM.",
+        ".OLLLLLLTTM.",
+        "..LL..LL.TM.",
+        ".LDL..LDL.M.",
+        "..D....D...."
     };
 
     private static readonly string[] StepLeftShape =
     {
-        "....TT....",
-        "...TATT...",
-        "..THHHHT..",
-        "..HCSSCH..",
-        ".THCMMCHT.",
-        ".TCCMMCCT.",
-        "..CCMMCC..",
-        "..CLLLLC..",
-        "LL.....LL.",
-        "L..L...L.."
+        "...TTTT.....",
+        "..THHHHT....",
+        "..THSSHT....",
+        ".OTHAAHTO...",
+        ".OTCCCCCTMM.",
+        ".THCCMMCCTM.",
+        ".OHCCMMCCTT.",
+        ".OCCLLLLCTM.",
+        ".LLLLLLL.TM.",
+        "LL....L.LMM.",
+        "D..L.L..DTM.",
+        "...D....D..."
     };
 
     private static readonly string[] StepRightShape =
     {
-        "....TT....",
-        "...TATT...",
-        "..THHHHT..",
-        "..HCSSCH..",
-        ".THCMMCHT.",
-        ".TCCMMCCT.",
-        "..CCMMCC..",
-        "..CLLLLC..",
-        ".LL.....LL",
-        "..L...L..L"
+        "...TTTT.....",
+        "..THHHHT....",
+        "..THSSHT....",
+        ".OTHAAHTO...",
+        ".OTCCCCCTMM.",
+        ".THCCMMCCTT.",
+        ".OHCCMMCCTM.",
+        ".OCCLLLLCTM.",
+        ".LLLLLLLTM..",
+        ".MML.L....LL",
+        ".MTD..L.L..D",
+        "...D....D..."
     };
 
     [Header("Pixels")]
@@ -64,20 +70,28 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     [SerializeField] private Color skinColor = new Color32(231, 188, 145, 255);
     [SerializeField] private Color metalColor = new Color32(171, 180, 194, 255);
     [SerializeField] private Color leatherColor = new Color32(117, 77, 49, 255);
+    [SerializeField] private Color outlineColor = new Color32(26, 25, 34, 255);
+    [SerializeField] private Color shadowColor = new Color32(53, 53, 72, 255);
 
     [Header("Animation")]
     [SerializeField] private float stepDuration = 0.12f;
     [SerializeField] private float movementThreshold = 0.001f;
     [SerializeField] private float teleportThresholdMultiplier = 1.5f;
+    [SerializeField] private float movementBobAmplitude = 0.045f;
+    [SerializeField] private float idleBreathAmplitude = 0.015f;
+    [SerializeField] private float horizontalSwayAmplitude = 0.02f;
+    [SerializeField] private float movementLeanAngle = 4f;
 
     private readonly List<GameObject> generatedPixels = new List<GameObject>();
     private readonly List<SpriteRenderer> generatedPixelRenderers = new List<SpriteRenderer>();
 
     private PlayerVisualPose currentPose = PlayerVisualPose.Idle;
     private SpriteRenderer baseSpriteRenderer;
+    private Transform renderRoot;
     private Vector3 lastObservedPosition;
     private float walkTimer;
     private bool hasObservedPosition;
+    private int facingDirection = 1;
 
     public IReadOnlyList<GameObject> GeneratedPixels => generatedPixels;
     public PlayerVisualPose CurrentPose => currentPose;
@@ -85,6 +99,7 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     void Awake()
     {
         baseSpriteRenderer = GetComponent<SpriteRenderer>();
+        EnsureRenderRoot();
         HideBaseSprite();
     }
 
@@ -93,6 +108,7 @@ public class ProceduralPlayerRenderer : MonoBehaviour
         lastObservedPosition = transform.position;
         hasObservedPosition = true;
         SetPose(PlayerVisualPose.Idle, true);
+        ApplyRenderMotion(false);
     }
 
     void OnValidate()
@@ -101,6 +117,9 @@ public class ProceduralPlayerRenderer : MonoBehaviour
         stepDuration = Mathf.Max(0.01f, stepDuration);
         movementThreshold = Mathf.Max(0.0001f, movementThreshold);
         teleportThresholdMultiplier = Mathf.Max(1f, teleportThresholdMultiplier);
+        movementBobAmplitude = Mathf.Max(0f, movementBobAmplitude);
+        idleBreathAmplitude = Mathf.Max(0f, idleBreathAmplitude);
+        horizontalSwayAmplitude = Mathf.Max(0f, horizontalSwayAmplitude);
     }
 
     void LateUpdate()
@@ -126,7 +145,16 @@ public class ProceduralPlayerRenderer : MonoBehaviour
 
     private void UpdateAnimation()
     {
-        float deltaDistance = Vector3.Distance(transform.position, lastObservedPosition);
+        Vector3 worldDelta = transform.position - lastObservedPosition;
+        bool facingChanged = false;
+        if (Mathf.Abs(worldDelta.x) > movementThreshold)
+        {
+            int newFacingDirection = worldDelta.x > 0f ? 1 : -1;
+            facingChanged = newFacingDirection != facingDirection;
+            facingDirection = newFacingDirection;
+        }
+
+        float deltaDistance = worldDelta.magnitude;
         float cellSize = WorldGrid.Instance != null ? WorldGrid.Instance.CellSize : 1f;
         float teleportThreshold = cellSize * teleportThresholdMultiplier;
         bool isMoving = deltaDistance > movementThreshold && deltaDistance < teleportThreshold;
@@ -134,7 +162,8 @@ public class ProceduralPlayerRenderer : MonoBehaviour
         if (!isMoving)
         {
             walkTimer = 0f;
-            SetPose(PlayerVisualPose.Idle);
+            SetPose(PlayerVisualPose.Idle, facingChanged);
+            ApplyRenderMotion(false);
             return;
         }
 
@@ -143,11 +172,13 @@ public class ProceduralPlayerRenderer : MonoBehaviour
         if (walkTimer >= cycleDuration)
             walkTimer %= cycleDuration;
 
-        SetPose(walkTimer < stepDuration ? PlayerVisualPose.StepLeft : PlayerVisualPose.StepRight);
+        SetPose(walkTimer < stepDuration ? PlayerVisualPose.StepLeft : PlayerVisualPose.StepRight, facingChanged);
+        ApplyRenderMotion(true);
     }
 
     private void ApplyShape(string[] shape)
     {
+        EnsureRenderRoot();
         HideBaseSprite();
         if (!TryGetShapeSize(shape, out int width, out int height))
         {
@@ -172,7 +203,7 @@ public class ProceduralPlayerRenderer : MonoBehaviour
                 GameObject pixel = generatedPixels[pixelIndex];
                 SpriteRenderer spriteRenderer = generatedPixelRenderers[pixelIndex];
                 pixel.SetActive(true);
-                pixel.transform.localPosition = new Vector3((column - halfWidth) * scaledPixelSize, (halfHeight - row) * scaledPixelSize, 0f);
+                pixel.transform.localPosition = new Vector3((column - halfWidth) * scaledPixelSize * facingDirection, (halfHeight - row) * scaledPixelSize, 0f);
                 pixel.transform.localScale = Vector3.one * scaledPixelSize;
                 spriteRenderer.color = color;
                 spriteRenderer.sortingOrder = sortingOrder;
@@ -185,10 +216,11 @@ public class ProceduralPlayerRenderer : MonoBehaviour
 
     private void EnsurePixelPoolSize(int requiredCount)
     {
+        EnsureRenderRoot();
         while (generatedPixels.Count < requiredCount)
         {
             GameObject pixel = new GameObject($"Proc_PlayerPixel_{generatedPixels.Count}");
-            pixel.transform.SetParent(transform, false);
+            pixel.transform.SetParent(renderRoot, false);
             pixel.SetActive(false);
             SpriteRenderer spriteRenderer = pixel.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = ProceduralPixelUtility.GetOrCreateSquareSprite();
@@ -211,10 +243,48 @@ public class ProceduralPlayerRenderer : MonoBehaviour
             baseSpriteRenderer.enabled = false;
     }
 
+    private void EnsureRenderRoot()
+    {
+        if (renderRoot != null)
+            return;
+
+        Transform existingRoot = transform.Find("ProceduralPlayerVisualRoot");
+        if (existingRoot != null)
+        {
+            renderRoot = existingRoot;
+            return;
+        }
+
+        GameObject root = new GameObject("ProceduralPlayerVisualRoot");
+        root.transform.SetParent(transform, false);
+        renderRoot = root.transform;
+    }
+
     private float GetScaledPixelSize()
     {
         float cellSize = WorldGrid.Instance != null ? WorldGrid.Instance.CellSize : 1f;
         return pixelSize * cellSize;
+    }
+
+    private void ApplyRenderMotion(bool isMoving)
+    {
+        if (renderRoot == null)
+            return;
+
+        float cellSize = WorldGrid.Instance != null ? WorldGrid.Instance.CellSize : 1f;
+        float cycle = stepDuration > Mathf.Epsilon ? walkTimer / stepDuration : 0f;
+        if (isMoving)
+        {
+            float bob = Mathf.Abs(Mathf.Sin(cycle * Mathf.PI)) * movementBobAmplitude * cellSize;
+            float sway = Mathf.Sin(cycle * Mathf.PI) * horizontalSwayAmplitude * cellSize * facingDirection;
+            renderRoot.localPosition = new Vector3(sway, bob, 0f);
+            renderRoot.localRotation = Quaternion.Euler(0f, 0f, -movementLeanAngle * facingDirection);
+            return;
+        }
+
+        float idleBreath = Mathf.Sin(Time.time * 2.2f) * idleBreathAmplitude * cellSize;
+        renderRoot.localPosition = new Vector3(0f, idleBreath, 0f);
+        renderRoot.localRotation = Quaternion.identity;
     }
 
     private static bool TryGetShapeSize(string[] shape, out int width, out int height)
@@ -240,6 +310,7 @@ public class ProceduralPlayerRenderer : MonoBehaviour
     {
         switch (cell)
         {
+            case 'O': color = outlineColor; return true;
             case 'T': color = trimColor; return true;
             case 'A': color = accentColor; return true;
             case 'C': color = cloakColor; return true;
@@ -247,6 +318,7 @@ public class ProceduralPlayerRenderer : MonoBehaviour
             case 'S': color = skinColor; return true;
             case 'M': color = metalColor; return true;
             case 'L': color = leatherColor; return true;
+            case 'D': color = shadowColor; return true;
             default: color = default; return false;
         }
     }

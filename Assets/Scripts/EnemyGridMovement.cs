@@ -5,12 +5,18 @@ public class EnemyGridMovement : MonoBehaviour
 {
     [SerializeField] private float baseMoveScale = BalanceConfig.GridMoveSpeedScale;
     [SerializeField] private float baseDecisionInterval = 0.8f;
+    [SerializeField] private float stepArcHeight = 0.045f;
+    [SerializeField] private float minimumStepDuration = 0.08f;
+    [SerializeField] private float arrivalThreshold = 0.01f;
 
     private Enemy enemy;
     private PlayerGridMovement player;
     private Vector3 targetPosition;
+    private Vector3 moveStartPosition;
     private bool isMoving;
     private float moveTimer;
+    private float moveProgress;
+    private float moveDuration;
 
     void Awake()
     {
@@ -23,8 +29,16 @@ public class EnemyGridMovement : MonoBehaviour
         if (WorldGrid.Instance != null && enemy != null)
         {
             targetPosition = WorldGrid.Instance.GridToWorld(enemy.GridPosition);
+            moveStartPosition = targetPosition;
             transform.position = targetPosition;
         }
+    }
+
+    void OnValidate()
+    {
+        stepArcHeight = Mathf.Max(0f, stepArcHeight);
+        minimumStepDuration = Mathf.Max(0.02f, minimumStepDuration);
+        arrivalThreshold = Mathf.Max(0.001f, arrivalThreshold);
     }
 
     void Update()
@@ -88,22 +102,39 @@ public class EnemyGridMovement : MonoBehaviour
         WorldGrid.Instance.RemoveEnemy(enemy);
         enemy.SetGridPosition(newPosition);
         WorldGrid.Instance.RegisterEnemy(enemy);
+        moveStartPosition = transform.position;
         targetPosition = WorldGrid.Instance.GridToWorld(newPosition);
+        float moveDistance = Vector3.Distance(moveStartPosition, targetPosition);
+        float moveSpeed = Mathf.Max(0.01f, baseMoveScale * Mathf.Max(0.2f, enemy.Speed));
+        moveDuration = Mathf.Max(minimumStepDuration, moveDistance / moveSpeed);
+        moveProgress = 0f;
         isMoving = true;
     }
 
     private void MoveToTargetCell()
     {
-        transform.position = Vector3.MoveTowards(
-            transform.position,
-            targetPosition,
-            baseMoveScale * enemy.Speed * Time.deltaTime);
+        if (moveDuration <= Mathf.Epsilon)
+        {
+            transform.position = targetPosition;
+            isMoving = false;
+            return;
+        }
 
-        if (Vector3.Distance(transform.position, targetPosition) > 0.01f)
+        moveProgress = Mathf.Clamp01(moveProgress + Time.deltaTime / moveDuration);
+        float easedProgress = Mathf.SmoothStep(0f, 1f, moveProgress);
+        Vector3 interpolatedPosition = Vector3.Lerp(moveStartPosition, targetPosition, easedProgress);
+        float cellSize = WorldGrid.Instance != null ? WorldGrid.Instance.CellSize : 1f;
+        float arcMultiplier = enemy != null && (enemy.EnemyId == "bat" || enemy.EnemyId == "ghost_elite") ? 0.35f : 1f;
+        float arcOffset = Mathf.Sin(moveProgress * Mathf.PI) * stepArcHeight * arcMultiplier * cellSize;
+        transform.position = interpolatedPosition + Vector3.up * arcOffset;
+
+        if (moveProgress < 1f && Vector3.Distance(transform.position, targetPosition) > arrivalThreshold)
             return;
 
         transform.position = targetPosition;
         isMoving = false;
+        moveProgress = 0f;
+        moveDuration = 0f;
 
         if (enemy.GridPosition == player.GridPosition)
         {

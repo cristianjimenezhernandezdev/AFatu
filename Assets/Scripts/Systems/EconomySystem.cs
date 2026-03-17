@@ -52,6 +52,18 @@ public sealed class EconomySystem
         progress.hardCurrency += amount;
     }
 
+    public bool TrySpendEmeralds(int amount)
+    {
+        if (amount <= 0)
+            return false;
+
+        if (progress.hardCurrency < amount)
+            return false;
+
+        progress.hardCurrency -= amount;
+        return true;
+    }
+
     public void GrantConsumable(string consumableId, int quantity)
     {
         if (string.IsNullOrWhiteSpace(consumableId) || quantity <= 0)

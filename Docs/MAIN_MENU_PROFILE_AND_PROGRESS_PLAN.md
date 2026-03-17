@@ -499,3 +499,164 @@ La millor estrategia, en base al que ja existeix al projecte, es aquesta:
 - i finalment ampliar la sincronitzacio remota perque la BDD reflecteixi el sistema complet.
 
 Aquest ordre respecta l'arquitectura actual, aprofita el model de dades existent i evita construir una UI bonica pero desvinculada del cor del projecte.
+
+## Implementacio actual de la primera versio a Unity
+
+Despres d'aquesta planificacio, el projecte ja te una primera implementacio funcional del hub principal i de la pantalla d'arbre de millores. La idea no ha estat muntar un layout final des de codi, sino deixar preparats els scripts i el flux de dades perque el disseny visual es pugui construir manualment dins Unity.
+
+### Scripts afegits per a aquesta capa
+
+- `Assets/Scripts/UI/Canvas/MainMenuCanvasController.cs`
+  - controlador principal del menu;
+  - obre el hub en arrencar;
+  - impedeix que `RunManager` iniciï automaticament una run mentre el menu esta visible;
+  - navega entre `Home` i `TechTree`;
+  - llança `StartRun()` quan es prem `Play`.
+
+- `Assets/Scripts/UI/Canvas/MainMenuHomeCanvasPanel.cs`
+  - refresca les dades del perfil actiu;
+  - mostra esmeraldes, runs, segment maxim i resum de desbloquejos;
+  - permet canviar longitud de run i mode inicial de l'heroi;
+  - dona acces al joc i a l'arbre de millores.
+
+- `Assets/Scripts/UI/Canvas/TechTreeCanvasPanel.cs`
+  - construeix la pantalla de meta-progres a partir del contingut real;
+  - llegeix poders divins, biomes, cartes i la millora de run llarga;
+  - calcula estat del node, cost i disponibilitat;
+  - envia les compres al `RunManager`.
+
+- `Assets/Scripts/UI/Canvas/TechTreeNodeCanvasSlot.cs`
+  - representa un node individual de l'arbre;
+  - mostra text, cost, estat, art i boto d'accio;
+  - es pot usar com a prefab replicable dins un `ScrollRect`.
+
+### Dades del projecte que ja alimenten el menu
+
+La implementacio actual reutilitza directament el model persistent existent:
+
+- `players`
+- `player_progress`
+- `player_card_unlocks`
+- `player_divine_power_unlocks`
+- `biomes`
+- `cards`
+- `divine_power_definitions`
+
+A la practica, el menu llegeix:
+
+- el nom i preferencies del perfil;
+- les esmeraldes disponibles;
+- les cartes desbloquejades;
+- els poders divins desbloquejats;
+- els biomes disponibles;
+- i la disponibilitat de la run llarga.
+
+### Peces de UI que has d'afegir manualment a Unity
+
+Es recomana muntar-ho dins un `Canvas_MainMenu` separat del HUD de run.
+
+Jerarquia minima recomanada:
+
+- `Canvas_MainMenu`
+- `MainMenuRoot`
+- `HomePanel`
+- `TechTreePanel`
+- `TechTreeScrollView`
+- `TechTreeContent`
+- `TechTreeNodePrefab`
+
+### Configuracio recomanada del controlador principal
+
+Al GameObject `MainMenuRoot`:
+
+- afegeix `MainMenuCanvasController`;
+- assigna `runManager`;
+- assigna `menuRoot` al mateix `MainMenuRoot`;
+- assigna `homePanel` i `homePanelRoot`;
+- assigna `techTreePanel` i `techTreePanelRoot`;
+- a `gameplayRootsToHide`, afegeix el canvas HUD de run i qualsevol bloc visual que vulguis ocultar mentre el menu esta obert.
+
+### Elements recomanats per a `HomePanel`
+
+Al GameObject `HomePanel`:
+
+- afegeix `MainMenuHomeCanvasPanel`;
+- crea textos `TMP_Text` per a:
+  - titol;
+  - nom del perfil;
+  - esmeraldes;
+  - resum de progres;
+  - resum de desbloquejos;
+  - resum de longitud de run i mode;
+  - missatge inferior o pista.
+
+Crea i assigna botons per a:
+
+- `Play`
+- `Tech Tree`
+- `Run curta`
+- `Run llarga`
+- `Mode prudent`
+- `Mode aggressive`
+- `Mode escape`
+
+### Elements recomanats per a `TechTreePanel`
+
+Al GameObject `TechTreePanel`:
+
+- afegeix `TechTreeCanvasPanel`;
+- crea textos `TMP_Text` per a:
+  - titol;
+  - resum superior;
+  - feedback de compra o bloqueig.
+
+Crea un boto `Back` i assigna'l.
+
+Dins del `ScrollRect`:
+
+- crea un contenidor `TechTreeContent`;
+- crea un prefab o objecte model `TechTreeNodePrefab`;
+- assigna aquest prefab al camp `nodePrefab`;
+- assigna `TechTreeContent` al camp `nodeContainer`.
+
+### Elements recomanats per a cada node de l'arbre
+
+Al prefab `TechTreeNodePrefab`:
+
+- afegeix `TechTreeNodeCanvasSlot`;
+- crea textos `TMP_Text` per a:
+  - branca o categoria;
+  - titol;
+  - descripcio;
+  - cost;
+  - estat;
+  - text del boto.
+
+Afegeix i assigna:
+
+- una `Image` per artwork;
+- una `Image` per al marc;
+- una `Image` per a la barra d'accent;
+- un `Button` d'accio.
+
+Si no hi ha sprite per a algun node, el sistema simplement ocultara la `Image` de l'art.
+
+### Criteris de desbloqueig que fa servir aquesta primera versio
+
+Per mantenir coherencia amb la BDD actual:
+
+- els poders divins usen el `unlockCost` real del seed;
+- la run llarga es desbloqueja com a node meta independent;
+- els biomes tenen un cost fix lleuger segons la seva importancia;
+- les cartes fan servir un cost derivat de `baseDifficulty` i `rewardTier`, ja que la BDD actual no defineix encara un `unlock_cost` explicit per a cartes.
+
+Aquesta ultima part es una decisio de transicio per poder tenir l'arbre funcional sense canviar ara mateix l'esquema SQL.
+
+### Valor d'aquesta implementacio
+
+Amb aquesta capa, el projecte ja te una entrada real de meta-joc:
+
+- el joc no comenca directament a la run;
+- el perfil actiu i les seves preferencies es fan visibles;
+- es poden preparar opcions abans de jugar;
+- i l'arbre de millores deixa de ser una idea de disseny i passa a ser una pantalla funcional.

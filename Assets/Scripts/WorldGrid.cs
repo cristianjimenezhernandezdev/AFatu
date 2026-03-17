@@ -347,7 +347,7 @@ public class WorldGrid : MonoBehaviour
         else
             walls.Remove(pos);
 
-        UpdateCellVisual(pos, blocked);
+        RefreshCellAndNeighbors(pos);
         return true;
     }
 
@@ -363,6 +363,26 @@ public class WorldGrid : MonoBehaviour
 
         SpriteRenderer spriteRenderer = cells[pos.x, pos.y].GetComponent<SpriteRenderer>();
         ProceduralEnvironmentFactory.ApplyCellVisual(cells[pos.x, pos.y], spriteRenderer, currentSegment.card.biomeId, currentSegment.floorColor, currentSegment.wallColor, pos, blocked);
+    }
+
+    private void RefreshCellAndNeighbors(Vector2Int center)
+    {
+        UpdateCellVisual(center, HasWallAt(center));
+
+        Vector2Int[] neighbors =
+        {
+            center + Vector2Int.up,
+            center + Vector2Int.right,
+            center + Vector2Int.down,
+            center + Vector2Int.left
+        };
+
+        for (int i = 0; i < neighbors.Length; i++)
+        {
+            Vector2Int pos = neighbors[i];
+            if (IsInsideGrid(pos))
+                UpdateCellVisual(pos, HasWallAt(pos));
+        }
     }
 
     private void EnsureSegmentRoot()
@@ -396,7 +416,7 @@ public class WorldGrid : MonoBehaviour
     private void UpdateWorldBackground()
     {
         EnsureWorldBackground();
-        if (worldBackground == null || Width <= 0 || Height <= 0)
+        if (worldBackground == null || Width <= 0 || Height <= 0 || currentSegment == null)
             return;
 
         Camera camera = Camera.main;
@@ -422,6 +442,7 @@ public class WorldGrid : MonoBehaviour
         worldBackground.size = Vector2.one;
         worldBackground.transform.localScale = new Vector3(width, height, 1f);
         worldBackground.sortingOrder = -10;
+        worldBackground.color = ProceduralEnvironmentFactory.GetBackdropColor(currentSegment.card.biomeId, currentSegment.floorColor, currentSegment.wallColor);
     }
 
     private Sprite GetOrCreateCellSprite()

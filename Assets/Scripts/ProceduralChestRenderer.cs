@@ -7,40 +7,42 @@ public class ProceduralChestRenderer : MonoBehaviour
 {
     private static readonly string[] ClosedShape =
     {
-        "...GGGG...",
-        "..GYYYYG..",
-        ".GGFFFFGG.",
-        ".GBBBBBBG.",
-        ".GBLLLLBG.",
-        ".GBBBBBBG.",
-        ".GBBBBBBG.",
-        ".GGMMMMGG.",
-        "..G....G..",
-        "...GGGG..."
+        "..OGGGGO...",
+        ".OGYYYYGO..",
+        "OGGFFFFGGO.",
+        "OGBBBBBBGO.",
+        "GGBMLLMBGG.",
+        "GGBBBBBBGG.",
+        "OGBMMMMBGO.",
+        ".GGSSSSGG..",
+        "..G....G...",
+        "..OSSSSO..."
     };
 
     private static readonly string[] OpenShape =
     {
-        ".GGGGGGGG.",
-        "GY......YG",
-        "GGGFFFFGGG",
-        "...BBBB...",
-        ".GBLLLLBG.",
-        ".GB....BG.",
-        ".GB....BG.",
-        ".GGMMMMGG.",
-        "..G....G..",
-        "...GGGG..."
+        ".OGGGGGGO..",
+        "OGY....YGO.",
+        "GGGFFFFGGG.",
+        "..GBBBBB...",
+        ".GGBLLMBG..",
+        ".GGB....G..",
+        ".OGBM..MG..",
+        "..GGSSGG...",
+        "..OG..GO...",
+        "...OSSO...."
     };
 
     [SerializeField] private float pixelSize = 0.085f;
     [SerializeField] private int sortingOrder = 11;
+    [SerializeField] private float shimmerSpeed = 3.2f;
 
     private readonly List<GameObject> pixels = new List<GameObject>();
     private readonly List<SpriteRenderer> renderers = new List<SpriteRenderer>();
     private SpriteRenderer baseSpriteRenderer;
     private bool isOpened;
     private string chestTier = "small";
+    private float shimmerTimer;
 
     void Awake()
     {
@@ -52,6 +54,12 @@ public class ProceduralChestRenderer : MonoBehaviour
     void Start()
     {
         Refresh();
+    }
+
+    void LateUpdate()
+    {
+        shimmerTimer += Time.deltaTime * shimmerSpeed;
+        UpdateShimmer();
     }
 
     public void SetOpened(bool opened, string tier)
@@ -109,6 +117,9 @@ public class ProceduralChestRenderer : MonoBehaviour
     {
         switch (cell)
         {
+            case 'O':
+                color = chestTier == "rare" ? new Color32(29, 38, 66, 255) : new Color32(52, 35, 19, 255);
+                return true;
             case 'G':
                 color = chestTier == "rare" ? new Color32(126, 187, 255, 255) : new Color32(226, 177, 76, 255);
                 return true;
@@ -127,9 +138,34 @@ public class ProceduralChestRenderer : MonoBehaviour
             case 'M':
                 color = new Color32(114, 118, 128, 255);
                 return true;
+            case 'S':
+                color = chestTier == "rare" ? new Color32(66, 84, 136, 255) : new Color32(80, 52, 27, 255);
+                return true;
             default:
                 color = default;
                 return false;
+        }
+    }
+
+    private void UpdateShimmer()
+    {
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            if (!pixels[i].activeSelf)
+                continue;
+
+            Vector3 local = pixels[i].transform.localPosition;
+            if (local.y < 0.05f)
+                continue;
+
+            if (!TryResolveColor('Y', out Color brightColor) || !TryResolveColor('G', out Color trimColor))
+                continue;
+
+            float shimmer = Mathf.Sin(shimmerTimer + local.x * 8f + local.y * 4f);
+            if (shimmer <= 0.35f)
+                continue;
+
+            renderers[i].color = Color.Lerp(trimColor, brightColor, (shimmer - 0.35f) * 0.65f);
         }
     }
 }

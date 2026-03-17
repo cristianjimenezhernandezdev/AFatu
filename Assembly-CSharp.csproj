@@ -43,7 +43,7 @@
     <UnityVersion>6000.3.11f1</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Users\crist\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.2.1\Analyzers\Microsoft.Unity.Analyzers.dll" />
+    <Analyzer Include="C:\Users\Cristian dev\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.2.1\Analyzers\Microsoft.Unity.Analyzers.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.SourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
@@ -79,13 +79,17 @@
     <Compile Include="Assets\Scripts\ProceduralEnvironmentFactory.cs" />
     <Compile Include="Assets\Scripts\Systems\ShopSystem.cs" />
     <Compile Include="Assets\Scripts\UI\Canvas\CardChoiceCanvasSlot.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\MainMenuCanvasController.cs" />
     <Compile Include="Assets\Scripts\UI\Canvas\DivinePowerCanvasSlot.cs" />
     <Compile Include="Assets\Scripts\UI\CardChoiceOverlayPanel.cs" />
     <Compile Include="Assets\Scripts\UI\HeroHudPanel.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\TechTreeNodeCanvasSlot.cs" />
     <Compile Include="Assets\Scripts\Core\Models\LegacyRemoteCompatibility.cs" />
     <Compile Include="Assets\Scripts\UI\RunSummaryOverlayPanel.cs" />
     <Compile Include="Assets\Scripts\RemoteGameApiClient.cs" />
     <Compile Include="Assets\Scripts\ProceduralGoalRenderer.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\TechTreeCanvasPanel.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\MainMenuHomeCanvasPanel.cs" />
     <Compile Include="Assets\Scripts\Core\Models\RunModels.cs" />
     <Compile Include="Assets\Scripts\Systems\HeroAIController.cs" />
     <Compile Include="Assets\Scripts\UI\DivinePowersPanel.cs" />
@@ -681,6 +685,14 @@
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
       <HintPath>Library\PackageCache\com.unity.collections@aea9d3bd5e19\Unity.Collections.Tests\System.Runtime.CompilerServices.Unsafe\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Android.Types">
+      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Data\PlaybackEngines\AndroidPlayer\Unity.Android.Types.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Android.Gradle">
+      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Data\PlaybackEngines\AndroidPlayer\Unity.Android.Gradle.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="netstandard">
