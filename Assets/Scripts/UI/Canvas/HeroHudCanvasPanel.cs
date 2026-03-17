@@ -34,21 +34,21 @@ public class HeroHudCanvasPanel : MonoBehaviour
             if (economyBadgeText != null)
                 economyBadgeText.text = $"Or {runManager.CurrentGold} | Esm. {runManager.CurrentEmeralds}";
             if (modeBadgeText != null)
-                modeBadgeText.text = runManager.EffectiveHeroMode;
+                modeBadgeText.text = $"Mode: {runManager.EffectiveHeroMode}";
         }
 
         if (healthText != null)
-            healthText.text = $"{player.CurrentHealth}/{player.MaxHealth}";
+            healthText.text = $"HP {player.CurrentHealth}/{player.MaxHealth}";
         if (healthFill != null)
             healthFill.fillAmount = player.MaxHealth <= 0 ? 0f : player.CurrentHealth / (float)player.MaxHealth;
         if (lastCombatText != null)
             lastCombatText.text = player.HasRecentCombat ? $"Ultim combat  +{player.LastCombatDamageDealt} / -{player.LastCombatDamageTaken}" : "Sense combat recent";
         if (attackValueText != null)
-            attackValueText.text = player.Attack.ToString();
+            attackValueText.text = $"Atk. {player.Attack}";
         if (defenseValueText != null)
-            defenseValueText.text = player.Defense.ToString();
+            defenseValueText.text = $"Def. {player.Defense}";
         if (speedValueText != null)
-            speedValueText.text = player.CombatSpeed.ToString("0.00");
+            speedValueText.text = $"Vel. {player.CombatSpeed:0.00}";
 
         if (runManager.CurrentSegment != null)
         {

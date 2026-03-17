@@ -1,0 +1,124 @@
+{
+    "profile":  {
+                    "playerId":  "local-player",
+                    "displayName":  "Jugador Local",
+                    "preferredLanguage":  "ca",
+                    "preferredRunLength":  5,
+                    "selectedHeroMode":  "prudent"
+                },
+    "progress":  {
+                     "playerId":  "local-player",
+                     "unlockedCardIds":  [
+                                             "abandoned_path",
+                                             "unstable_ruins",
+                                             "dark_clearing",
+                                             "dense_forest",
+                                             "calm_marsh",
+                                             "stagnant_waters",
+                                             "silent_crypt",
+                                             "ancient_corridors"
+                                         ],
+                     "unlockedRelicIds":  [
+
+                                          ],
+                     "unlockedModifierIds":  [
+                                                 "safe_paths",
+                                                 "dense_growth",
+                                                 "stagnant_mud",
+                                                 "healing_shrine"
+                                             ],
+                     "unlockedDivinePowerIds":  [
+                                                    "speed_blessing"
+                                                ],
+                     "completedRuns":  0,
+                     "failedRuns":  0,
+                     "totalRunsStarted":  0,
+                     "totalCardsUnlocked":  8,
+                     "highestSegmentReached":  0,
+                     "totalEnemiesDefeated":  0,
+                     "totalDamageDealt":  0,
+                     "totalDamageTaken":  0,
+                     "softCurrency":  0,
+                     "hardCurrency":  0,
+                     "run5Unlocked":  true,
+                     "run7Unlocked":  false,
+                     "shopEnabled":  true,
+                     "biomesUnlocked":  [
+                                            "ruins",
+                                            "dark_forest",
+                                            "swamp",
+                                            "crypt"
+                                        ]
+                 },
+    "cardUnlocks":  [
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "abandoned_path",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "unstable_ruins",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "dark_clearing",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "dense_forest",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "calm_marsh",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "stagnant_waters",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "silent_crypt",
+                            "unlockSource":  "default"
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "cardId":  "ancient_corridors",
+                            "unlockSource":  "default"
+                        }
+                    ],
+    "divinePowerUnlocks":  [
+                               {
+                                   "playerId":  "local-player",
+                                   "powerId":  "speed_blessing",
+                                   "unlockSource":  "default"
+                               }
+                           ],
+    "consumables":  [
+                        {
+                            "playerId":  "local-player",
+                            "consumableId":  "healing_potion",
+                            "quantity":  0
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "consumableId":  "smoke_bomb",
+                            "quantity":  0
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "consumableId":  "speed_dose",
+                            "quantity":  0
+                        },
+                        {
+                            "playerId":  "local-player",
+                            "consumableId":  "guard_token",
+                            "quantity":  0
+                        }
+                    ]
+}

@@ -1,0 +1,1343 @@
+﻿{
+    "biomes":  [
+                   {
+                       "biomeId":  "ruins",
+                       "displayName":  "Ruines",
+                       "description":  "Muralles caigudes, restes de temples i recorreguts irregulars.",
+                       "floorColorHex":  "#8E857D",
+                       "wallColorHex":  "#3F3936",
+                       "ambientConfigJson":  "{\"music\":\"ruins_theme\",\"fog\":0.08,\"mood\":\"ancient\"}",
+                       "isActive":  true
+                   },
+                   {
+                       "biomeId":  "dark_forest",
+                       "displayName":  "Bosc Fosc",
+                       "description":  "Vegetacio densa, ombres ritualistes i camins naturals.",
+                       "floorColorHex":  "#5D7A52",
+                       "wallColorHex":  "#243721",
+                       "ambientConfigJson":  "{\"music\":\"dark_forest_theme\",\"fog\":0.10,\"mood\":\"wild\"}",
+                       "isActive":  true
+                   },
+                   {
+                       "biomeId":  "swamp",
+                       "displayName":  "Panta",
+                       "description":  "Terreny humit, zones lentes i recorreguts tortuosos.",
+                       "floorColorHex":  "#667C63",
+                       "wallColorHex":  "#243C2B",
+                       "ambientConfigJson":  "{\"music\":\"swamp_theme\",\"fog\":0.13,\"mood\":\"decay\"}",
+                       "isActive":  true
+                   },
+                   {
+                       "biomeId":  "crypt",
+                       "displayName":  "Cripta",
+                       "description":  "Passadissos estrets, altars antics i pressio constant.",
+                       "floorColorHex":  "#A3A3B1",
+                       "wallColorHex":  "#41404F",
+                       "ambientConfigJson":  "{\"music\":\"crypt_theme\",\"fog\":0.06,\"mood\":\"ritual\"}",
+                       "isActive":  true
+                   }
+               ],
+    "enemies":  [
+                    {
+                        "enemyId":  "skeleton",
+                        "displayName":  "Esquelet",
+                        "description":  "Enemic normal i estandard del joc.",
+                        "maxHealth":  10,
+                        "attack":  4,
+                        "defense":  0,
+                        "speed":  1,
+                        "movementPattern":  "chase",
+                        "rarity":  "common",
+                        "spriteKey":  "enemy_skeleton",
+                        "behaviorConfigJson":  "{\"aggression\":1.0,\"avoidance\":0.0,\"ranged\":false,\"range\":1}",
+                        "rewardConfigJson":  "{\"gold\":2}",
+                        "isActive":  true
+                    },
+                    {
+                        "enemyId":  "bat",
+                        "displayName":  "Ratpenat",
+                        "description":  "Enemic rapid amb poca vida pero molt molest.",
+                        "maxHealth":  6,
+                        "attack":  3,
+                        "defense":  0,
+                        "speed":  1.5,
+                        "movementPattern":  "flank",
+                        "rarity":  "common",
+                        "spriteKey":  "enemy_bat",
+                        "behaviorConfigJson":  "{\"aggression\":1.15,\"avoidance\":0.0,\"ranged\":false,\"range\":1}",
+                        "rewardConfigJson":  "{\"gold\":2}",
+                        "isActive":  true
+                    },
+                    {
+                        "enemyId":  "zombie",
+                        "displayName":  "Zombi",
+                        "description":  "Enemic lent, resistent i bloquejador de camins.",
+                        "maxHealth":  18,
+                        "attack":  5,
+                        "defense":  1,
+                        "speed":  0.65,
+                        "movementPattern":  "slow_chase",
+                        "rarity":  "uncommon",
+                        "spriteKey":  "enemy_zombie",
+                        "behaviorConfigJson":  "{\"aggression\":0.9,\"avoidance\":0.0,\"ranged\":false,\"range\":1}",
+                        "rewardConfigJson":  "{\"gold\":4}",
+                        "isActive":  true
+                    },
+                    {
+                        "enemyId":  "ghost_elite",
+                        "displayName":  "Fantasma",
+                        "description":  "Enemic elite a distancia amb amena?a elevada.",
+                        "maxHealth":  14,
+                        "attack":  6,
+                        "defense":  1,
+                        "speed":  1.1,
+                        "movementPattern":  "ranged_guard",
+                        "rarity":  "rare",
+                        "spriteKey":  "enemy_ghost",
+                        "behaviorConfigJson":  "{\"aggression\":1.2,\"avoidance\":0.1,\"ranged\":true,\"range\":4}",
+                        "rewardConfigJson":  "{\"gold\":7}",
+                        "isActive":  true
+                    }
+                ],
+    "modifiers":  [
+                      {
+                          "modifierId":  "safe_paths",
+                          "displayName":  "Camins Clars",
+                          "description":  "Menys obstacles i millor recorregut per a lheroi.",
+                          "modifierType":  "terrain",
+                          "rarity":  "common",
+                          "stackMode":  "refresh",
+                          "effectConfigJson":  "{\"extraObstacleChance\":-0.05}",
+                          "isPositive":  true,
+                          "isActive":  true,
+                          "artKey":  "mod_safe_paths"
+                      },
+                      {
+                          "modifierId":  "dense_growth",
+                          "displayName":  "Vegetacio Densa",
+                          "description":  "Incrementa obstacles i estreny alguns passos.",
+                          "modifierType":  "terrain",
+                          "rarity":  "common",
+                          "stackMode":  "refresh",
+                          "effectConfigJson":  "{\"extraObstacleChance\":0.06}",
+                          "isPositive":  false,
+                          "isActive":  true,
+                          "artKey":  "mod_dense_growth"
+                      },
+                      {
+                          "modifierId":  "stagnant_mud",
+                          "displayName":  "Fang Estancat",
+                          "description":  "Algunes zones redueixen la mobilitat del segment.",
+                          "modifierType":  "terrain",
+                          "rarity":  "uncommon",
+                          "stackMode":  "refresh",
+                          "effectConfigJson":  "{\"slowZones\":true,\"heroSpeedMultiplier\":0.9}",
+                          "isPositive":  false,
+                          "isActive":  true,
+                          "artKey":  "mod_stagnant_mud"
+                      },
+                      {
+                          "modifierId":  "healing_shrine",
+                          "displayName":  "Santuari Curatiu",
+                          "description":  "En entrar al segment lheroi recupera una mica de vida.",
+                          "modifierType":  "blessing",
+                          "rarity":  "rare",
+                          "stackMode":  "refresh",
+                          "effectConfigJson":  "{\"healOnEnter\":3}",
+                          "isPositive":  true,
+                          "isActive":  true,
+                          "artKey":  "mod_healing_shrine"
+                      },
+                      {
+                          "modifierId":  "blood_mist",
+                          "displayName":  "Boira Sagnant",
+                          "description":  "Els enemics daquest segment son lleugerament mes perillosos.",
+                          "modifierType":  "combat",
+                          "rarity":  "uncommon",
+                          "stackMode":  "stack",
+                          "effectConfigJson":  "{\"enemyAttackBonus\":1}",
+                          "isPositive":  false,
+                          "isActive":  true,
+                          "artKey":  "mod_blood_mist"
+                      },
+                      {
+                          "modifierId":  "elite_presence",
+                          "displayName":  "Presencia Elite",
+                          "description":  "Augmenta la probabilitat denemic elite.",
+                          "modifierType":  "encounter",
+                          "rarity":  "rare",
+                          "stackMode":  "refresh",
+                          "effectConfigJson":  "{\"eliteChanceBonus\":0.10}",
+                          "isPositive":  false,
+                          "isActive":  true,
+                          "artKey":  "mod_elite_presence"
+                      }
+                  ],
+    "relics":  [
+                   {
+                       "relicId":  "relic_iron_heart",
+                       "displayName":  "Cor de Ferro",
+                       "description":  "Augmenta la vida maxima de lheroi.",
+                       "rarity":  "common",
+                       "effectConfigJson":  "{\"heroMaxHealthBonus\":3}",
+                       "isActive":  true,
+                       "artKey":  "relic_iron_heart"
+                   },
+                   {
+                       "relicId":  "relic_warrior_spirit",
+                       "displayName":  "Esperit del Guerrer",
+                       "description":  "Augmenta latac base de lheroi.",
+                       "rarity":  "common",
+                       "effectConfigJson":  "{\"heroAttackBonus\":1}",
+                       "isActive":  true,
+                       "artKey":  "relic_warrior_spirit"
+                   },
+                   {
+                       "relicId":  "relic_swift_boots",
+                       "displayName":  "Botes Agils",
+                       "description":  "Augmenta lleugerament la velocitat base.",
+                       "rarity":  "uncommon",
+                       "effectConfigJson":  "{\"heroSpeedBonus\":0.1}",
+                       "isActive":  true,
+                       "artKey":  "relic_swift_boots"
+                   },
+                   {
+                       "relicId":  "relic_golden_touch",
+                       "displayName":  "Toc Daurat",
+                       "description":  "Els cofres donen mes or.",
+                       "rarity":  "rare",
+                       "effectConfigJson":  "{\"chestGoldBonusMultiplier\":1.25,\"goldBonus\":0.25}",
+                       "isActive":  true,
+                       "artKey":  "relic_golden_touch"
+                   },
+                   {
+                       "relicId":  "relic_shadow_instinct",
+                       "displayName":  "Instint de lOmbra",
+                       "description":  "Augmenta la probabilitat devitar combats desfavorables.",
+                       "rarity":  "rare",
+                       "effectConfigJson":  "{\"avoidCombatChance\":0.20,\"escapeChance\":0.20}",
+                       "isActive":  true,
+                       "artKey":  "relic_shadow_instinct"
+                   }
+               ],
+    "consumables":  [
+                        {
+                            "consumableId":  "healing_potion",
+                            "displayName":  "Pocio de Curacio",
+                            "description":  "Recupera vida durant o entre segments.",
+                            "maxStack":  10,
+                            "effectConfigJson":  "{\"heal\":8}",
+                            "isActive":  true,
+                            "artKey":  "consumable_healing_potion"
+                        },
+                        {
+                            "consumableId":  "smoke_bomb",
+                            "displayName":  "Bomba de Fum",
+                            "description":  "Ajuda a evitar un combat desfavorable.",
+                            "maxStack":  5,
+                            "effectConfigJson":  "{\"skipEncounter\":true}",
+                            "isActive":  true,
+                            "artKey":  "consumable_smoke_bomb"
+                        },
+                        {
+                            "consumableId":  "speed_dose",
+                            "displayName":  "Dosi de Velocitat",
+                            "description":  "Augment temporal de velocitat.",
+                            "maxStack":  5,
+                            "effectConfigJson":  "{\"speedMultiplier\":1.25,\"durationSeconds\":8}",
+                            "isActive":  true,
+                            "artKey":  "consumable_speed_dose"
+                        },
+                        {
+                            "consumableId":  "guard_token",
+                            "displayName":  "Segell de Proteccio",
+                            "description":  "Escut temporal de defensa.",
+                            "maxStack":  5,
+                            "effectConfigJson":  "{\"defenseBonus\":2,\"durationSeconds\":8}",
+                            "isActive":  true,
+                            "artKey":  "consumable_guard_token"
+                        }
+                    ],
+    "divinePowers":  [
+                         {
+                             "powerId":  "speed_blessing",
+                             "displayName":  "Benediccio de Velocitat",
+                             "description":  "Augmenta temporalment la velocitat de lheroi.",
+                             "powerType":  "buff",
+                             "cooldownSeconds":  30,
+                             "durationSeconds":  8,
+                             "unlockCost":  0,
+                             "startsUnlocked":  true,
+                             "sortOrder":  10,
+                             "effectConfigJson":  "{\"speedMultiplier\":1.35}",
+                             "isActive":  true,
+                             "artKey":  "divine_speed_blessing"
+                         },
+                         {
+                             "powerId":  "strength_blessing",
+                             "displayName":  "Benediccio de Forca",
+                             "description":  "Augmenta temporalment latac de lheroi.",
+                             "powerType":  "buff",
+                             "cooldownSeconds":  35,
+                             "durationSeconds":  8,
+                             "unlockCost":  8,
+                             "startsUnlocked":  false,
+                             "sortOrder":  20,
+                             "effectConfigJson":  "{\"attackBonus\":2}",
+                             "isActive":  true,
+                             "artKey":  "divine_strength_blessing"
+                         },
+                         {
+                             "powerId":  "shield_blessing",
+                             "displayName":  "Benediccio dEscut",
+                             "description":  "Augmenta temporalment la defensa de lheroi.",
+                             "powerType":  "defense",
+                             "cooldownSeconds":  35,
+                             "durationSeconds":  8,
+                             "unlockCost":  8,
+                             "startsUnlocked":  false,
+                             "sortOrder":  30,
+                             "effectConfigJson":  "{\"defenseBonus\":2}",
+                             "isActive":  true,
+                             "artKey":  "divine_shield_blessing"
+                         },
+                         {
+                             "powerId":  "command_attack",
+                             "displayName":  "Ordre dAtac",
+                             "description":  "Forca temporalment un comportament mes agressiu.",
+                             "powerType":  "behavior",
+                             "cooldownSeconds":  40,
+                             "durationSeconds":  6,
+                             "unlockCost":  10,
+                             "startsUnlocked":  false,
+                             "sortOrder":  40,
+                             "effectConfigJson":  "{\"heroMode\":\"aggressive\"}",
+                             "isActive":  true,
+                             "artKey":  "divine_command_attack"
+                         },
+                         {
+                             "powerId":  "command_escape",
+                             "displayName":  "Ordre de Fugida",
+                             "description":  "Forca temporalment un comportament de prudencia o fugida.",
+                             "powerType":  "behavior",
+                             "cooldownSeconds":  40,
+                             "durationSeconds":  6,
+                             "unlockCost":  10,
+                             "startsUnlocked":  false,
+                             "sortOrder":  50,
+                             "effectConfigJson":  "{\"heroMode\":\"escape\"}",
+                             "isActive":  true,
+                             "artKey":  "divine_command_escape"
+                         },
+                         {
+                             "powerId":  "summon_companion",
+                             "displayName":  "Invocar Company",
+                             "description":  "Invoca un company temporal que ajuda durant el segment.",
+                             "powerType":  "summon",
+                             "cooldownSeconds":  60,
+                             "durationSeconds":  0,
+                             "unlockCost":  14,
+                             "startsUnlocked":  false,
+                             "sortOrder":  60,
+                             "effectConfigJson":  "{\"spawnCompanion\":true,\"durationSegments\":1}",
+                             "isActive":  true,
+                             "artKey":  "divine_summon_companion"
+                         }
+                     ],
+    "cards":  [
+                  {
+                      "cardId":  "abandoned_path",
+                      "displayName":  "Cami Abandonat",
+                      "description":  "Carta segura de ruines amb poca pressio i recorregut relativament net.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "ruins",
+                      "floorColorHex":  "#8E857D",
+                      "wallColorHex":  "#3F3936",
+                      "segmentWidth":  16,
+                      "segmentHeight":  10,
+                      "entryX":  1,
+                      "exitX":  14,
+                      "obstacleChance":  0.09,
+                      "enemyChance":  0.11,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "bat"
+                                   ],
+                      "baseDifficulty":  1,
+                      "cardType":  "safe",
+                      "rewardTier":  1,
+                      "generationTags":  [
+                                             "safe",
+                                             "starter",
+                                             "ruins"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  10,
+                      "isActive":  true,
+                      "artKey":  "card_ruins_abandoned"
+                  },
+                  {
+                      "cardId":  "unstable_ruins",
+                      "displayName":  "Ruines Inestables",
+                      "description":  "Carta equilibrada de ruines amb recorregut irregular i risc moderat.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "ruins",
+                      "floorColorHex":  "#8E857D",
+                      "wallColorHex":  "#3F3936",
+                      "segmentWidth":  17,
+                      "segmentHeight":  10,
+                      "entryX":  1,
+                      "exitX":  15,
+                      "obstacleChance":  0.15,
+                      "enemyChance":  0.16,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "bat",
+                                       "zombie"
+                                   ],
+                      "baseDifficulty":  2,
+                      "cardType":  "balanced",
+                      "rewardTier":  2,
+                      "generationTags":  [
+                                             "balanced",
+                                             "ruins"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  20,
+                      "isActive":  true,
+                      "artKey":  "card_ruins_unstable"
+                  },
+                  {
+                      "cardId":  "fallen_fortress",
+                      "displayName":  "Fortalesa Caiguda",
+                      "description":  "Carta arriscada de ruines amb mes enemics i millors recompenses.",
+                      "startsUnlocked":  false,
+                      "biomeId":  "ruins",
+                      "floorColorHex":  "#8E857D",
+                      "wallColorHex":  "#3F3936",
+                      "segmentWidth":  18,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  16,
+                      "obstacleChance":  0.2,
+                      "enemyChance":  0.22,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "zombie",
+                                       "ghost_elite"
+                                   ],
+                      "baseDifficulty":  3,
+                      "cardType":  "risky",
+                      "rewardTier":  3,
+                      "generationTags":  [
+                                             "risky",
+                                             "elite_chance",
+                                             "ruins"
+                                         ],
+                      "shopUnlockSegment":  3,
+                      "sortOrder":  30,
+                      "isActive":  true,
+                      "artKey":  "card_ruins_fallen_fortress"
+                  },
+                  {
+                      "cardId":  "dark_clearing",
+                      "displayName":  "Clariana Fosca",
+                      "description":  "Carta segura de bosc fosc amb camins mes oberts.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "dark_forest",
+                      "floorColorHex":  "#5D7A52",
+                      "wallColorHex":  "#243721",
+                      "segmentWidth":  16,
+                      "segmentHeight":  10,
+                      "entryX":  1,
+                      "exitX":  14,
+                      "obstacleChance":  0.1,
+                      "enemyChance":  0.12,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "bat"
+                                   ],
+                      "baseDifficulty":  1,
+                      "cardType":  "safe",
+                      "rewardTier":  1,
+                      "generationTags":  [
+                                             "safe",
+                                             "starter",
+                                             "forest"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  40,
+                      "isActive":  true,
+                      "artKey":  "card_forest_dark_clearing"
+                  },
+                  {
+                      "cardId":  "dense_forest",
+                      "displayName":  "Bosc Espes",
+                      "description":  "Carta equilibrada de bosc amb obstacles naturals i combats normals.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "dark_forest",
+                      "floorColorHex":  "#5D7A52",
+                      "wallColorHex":  "#243721",
+                      "segmentWidth":  17,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  15,
+                      "obstacleChance":  0.17,
+                      "enemyChance":  0.16,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "bat",
+                                       "zombie"
+                                   ],
+                      "baseDifficulty":  2,
+                      "cardType":  "balanced",
+                      "rewardTier":  2,
+                      "generationTags":  [
+                                             "balanced",
+                                             "forest"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  50,
+                      "isActive":  true,
+                      "artKey":  "card_forest_dense"
+                  },
+                  {
+                      "cardId":  "cursed_forest",
+                      "displayName":  "Bosc Maleit",
+                      "description":  "Carta arriscada de bosc amb mes enemics rapids i mes recompensa.",
+                      "startsUnlocked":  false,
+                      "biomeId":  "dark_forest",
+                      "floorColorHex":  "#5D7A52",
+                      "wallColorHex":  "#243721",
+                      "segmentWidth":  18,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  16,
+                      "obstacleChance":  0.2,
+                      "enemyChance":  0.22,
+                      "enemyIds":  [
+                                       "bat",
+                                       "zombie",
+                                       "ghost_elite"
+                                   ],
+                      "baseDifficulty":  3,
+                      "cardType":  "risky",
+                      "rewardTier":  3,
+                      "generationTags":  [
+                                             "risky",
+                                             "elite_chance",
+                                             "forest"
+                                         ],
+                      "shopUnlockSegment":  3,
+                      "sortOrder":  60,
+                      "isActive":  true,
+                      "artKey":  "card_forest_cursed"
+                  },
+                  {
+                      "cardId":  "calm_marsh",
+                      "displayName":  "Panta Tranquil",
+                      "description":  "Carta segura de panta amb poca pressio pero recorregut lent.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "swamp",
+                      "floorColorHex":  "#667C63",
+                      "wallColorHex":  "#243C2B",
+                      "segmentWidth":  16,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  14,
+                      "obstacleChance":  0.12,
+                      "enemyChance":  0.11,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "zombie"
+                                   ],
+                      "baseDifficulty":  1,
+                      "cardType":  "safe",
+                      "rewardTier":  1,
+                      "generationTags":  [
+                                             "safe",
+                                             "starter",
+                                             "swamp"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  70,
+                      "isActive":  true,
+                      "artKey":  "card_swamp_calm"
+                  },
+                  {
+                      "cardId":  "stagnant_waters",
+                      "displayName":  "Aigues Estancades",
+                      "description":  "Carta equilibrada de panta amb rutes alternatives i risc moderat.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "swamp",
+                      "floorColorHex":  "#667C63",
+                      "wallColorHex":  "#243C2B",
+                      "segmentWidth":  17,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  15,
+                      "obstacleChance":  0.16,
+                      "enemyChance":  0.16,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "bat",
+                                       "zombie"
+                                   ],
+                      "baseDifficulty":  2,
+                      "cardType":  "balanced",
+                      "rewardTier":  2,
+                      "generationTags":  [
+                                             "balanced",
+                                             "swamp"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  80,
+                      "isActive":  true,
+                      "artKey":  "card_swamp_stagnant"
+                  },
+                  {
+                      "cardId":  "deep_swamp",
+                      "displayName":  "Panta Profund",
+                      "description":  "Carta arriscada de panta amb mes pressio i millors cofres.",
+                      "startsUnlocked":  false,
+                      "biomeId":  "swamp",
+                      "floorColorHex":  "#667C63",
+                      "wallColorHex":  "#243C2B",
+                      "segmentWidth":  18,
+                      "segmentHeight":  12,
+                      "entryX":  1,
+                      "exitX":  16,
+                      "obstacleChance":  0.21,
+                      "enemyChance":  0.22,
+                      "enemyIds":  [
+                                       "bat",
+                                       "zombie",
+                                       "ghost_elite"
+                                   ],
+                      "baseDifficulty":  3,
+                      "cardType":  "risky",
+                      "rewardTier":  3,
+                      "generationTags":  [
+                                             "risky",
+                                             "elite_chance",
+                                             "swamp"
+                                         ],
+                      "shopUnlockSegment":  3,
+                      "sortOrder":  90,
+                      "isActive":  true,
+                      "artKey":  "card_swamp_deep"
+                  },
+                  {
+                      "cardId":  "silent_crypt",
+                      "displayName":  "Cripta Silenciosa",
+                      "description":  "Carta segura de cripta amb passadissos relativament clars.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "crypt",
+                      "floorColorHex":  "#A3A3B1",
+                      "wallColorHex":  "#41404F",
+                      "segmentWidth":  16,
+                      "segmentHeight":  10,
+                      "entryX":  1,
+                      "exitX":  14,
+                      "obstacleChance":  0.13,
+                      "enemyChance":  0.12,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "zombie"
+                                   ],
+                      "baseDifficulty":  1,
+                      "cardType":  "safe",
+                      "rewardTier":  1,
+                      "generationTags":  [
+                                             "safe",
+                                             "starter",
+                                             "crypt"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  100,
+                      "isActive":  true,
+                      "artKey":  "card_crypt_silent"
+                  },
+                  {
+                      "cardId":  "ancient_corridors",
+                      "displayName":  "Passadissos Antics",
+                      "description":  "Carta equilibrada de cripta amb lluita probable i rutes estretes.",
+                      "startsUnlocked":  true,
+                      "biomeId":  "crypt",
+                      "floorColorHex":  "#A3A3B1",
+                      "wallColorHex":  "#41404F",
+                      "segmentWidth":  17,
+                      "segmentHeight":  10,
+                      "entryX":  1,
+                      "exitX":  15,
+                      "obstacleChance":  0.18,
+                      "enemyChance":  0.17,
+                      "enemyIds":  [
+                                       "skeleton",
+                                       "zombie",
+                                       "bat"
+                                   ],
+                      "baseDifficulty":  2,
+                      "cardType":  "balanced",
+                      "rewardTier":  2,
+                      "generationTags":  [
+                                             "balanced",
+                                             "crypt"
+                                         ],
+                      "shopUnlockSegment":  0,
+                      "sortOrder":  110,
+                      "isActive":  true,
+                      "artKey":  "card_crypt_ancient_corridors"
+                  },
+                  {
+                      "cardId":  "profaned_crypt",
+                      "displayName":  "Cripta Profanada",
+                      "description":  "Carta arriscada de cripta amb mes elites i mes recompensa.",
+                      "startsUnlocked":  false,
+                      "biomeId":  "crypt",
+                      "floorColorHex":  "#A3A3B1",
+                      "wallColorHex":  "#41404F",
+                      "segmentWidth":  18,
+                      "segmentHeight":  11,
+                      "entryX":  1,
+                      "exitX":  16,
+                      "obstacleChance":  0.22,
+                      "enemyChance":  0.23,
+                      "enemyIds":  [
+                                       "zombie",
+                                       "ghost_elite",
+                                       "bat"
+                                   ],
+                      "baseDifficulty":  3,
+                      "cardType":  "risky",
+                      "rewardTier":  3,
+                      "generationTags":  [
+                                             "risky",
+                                             "elite_chance",
+                                             "crypt"
+                                         ],
+                      "shopUnlockSegment":  3,
+                      "sortOrder":  120,
+                      "isActive":  true,
+                      "artKey":  "card_crypt_profaned"
+                  }
+              ],
+    "cardEnemyPool":  [
+                          {
+                              "cardId":  "abandoned_path",
+                              "enemyId":  "skeleton",
+                              "weight":  6,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "abandoned_path",
+                              "enemyId":  "bat",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "unstable_ruins",
+                              "enemyId":  "skeleton",
+                              "weight":  5,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "unstable_ruins",
+                              "enemyId":  "bat",
+                              "weight":  3,
+                              "minCount":  0,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "unstable_ruins",
+                              "enemyId":  "zombie",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "fallen_fortress",
+                              "enemyId":  "skeleton",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "fallen_fortress",
+                              "enemyId":  "zombie",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "fallen_fortress",
+                              "enemyId":  "ghost_elite",
+                              "weight":  1,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "dark_clearing",
+                              "enemyId":  "skeleton",
+                              "weight":  5,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "dark_clearing",
+                              "enemyId":  "bat",
+                              "weight":  3,
+                              "minCount":  0,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "dense_forest",
+                              "enemyId":  "skeleton",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "dense_forest",
+                              "enemyId":  "bat",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "dense_forest",
+                              "enemyId":  "zombie",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "cursed_forest",
+                              "enemyId":  "bat",
+                              "weight":  5,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "cursed_forest",
+                              "enemyId":  "zombie",
+                              "weight":  3,
+                              "minCount":  0,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "cursed_forest",
+                              "enemyId":  "ghost_elite",
+                              "weight":  1,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "calm_marsh",
+                              "enemyId":  "skeleton",
+                              "weight":  3,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "calm_marsh",
+                              "enemyId":  "zombie",
+                              "weight":  4,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "stagnant_waters",
+                              "enemyId":  "skeleton",
+                              "weight":  3,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "stagnant_waters",
+                              "enemyId":  "bat",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "stagnant_waters",
+                              "enemyId":  "zombie",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "deep_swamp",
+                              "enemyId":  "bat",
+                              "weight":  3,
+                              "minCount":  0,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "deep_swamp",
+                              "enemyId":  "zombie",
+                              "weight":  5,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "deep_swamp",
+                              "enemyId":  "ghost_elite",
+                              "weight":  1,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "silent_crypt",
+                              "enemyId":  "skeleton",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "silent_crypt",
+                              "enemyId":  "zombie",
+                              "weight":  3,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "ancient_corridors",
+                              "enemyId":  "skeleton",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  3
+                          },
+                          {
+                              "cardId":  "ancient_corridors",
+                              "enemyId":  "zombie",
+                              "weight":  4,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "ancient_corridors",
+                              "enemyId":  "bat",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "profaned_crypt",
+                              "enemyId":  "zombie",
+                              "weight":  5,
+                              "minCount":  1,
+                              "maxCount":  2
+                          },
+                          {
+                              "cardId":  "profaned_crypt",
+                              "enemyId":  "ghost_elite",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  1
+                          },
+                          {
+                              "cardId":  "profaned_crypt",
+                              "enemyId":  "bat",
+                              "weight":  2,
+                              "minCount":  0,
+                              "maxCount":  2
+                          }
+                      ],
+    "cardModifierPool":  [
+                             {
+                                 "cardId":  "abandoned_path",
+                                 "modifierId":  "safe_paths",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "unstable_ruins",
+                                 "modifierId":  "dense_growth",
+                                 "weight":  2,
+                                 "guaranteed":  false
+                             },
+                             {
+                                 "cardId":  "fallen_fortress",
+                                 "modifierId":  "elite_presence",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "dark_clearing",
+                                 "modifierId":  "safe_paths",
+                                 "weight":  2,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "dense_forest",
+                                 "modifierId":  "dense_growth",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "cursed_forest",
+                                 "modifierId":  "blood_mist",
+                                 "weight":  3,
+                                 "guaranteed":  false
+                             },
+                             {
+                                 "cardId":  "calm_marsh",
+                                 "modifierId":  "healing_shrine",
+                                 "weight":  1,
+                                 "guaranteed":  false
+                             },
+                             {
+                                 "cardId":  "stagnant_waters",
+                                 "modifierId":  "stagnant_mud",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "deep_swamp",
+                                 "modifierId":  "stagnant_mud",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "silent_crypt",
+                                 "modifierId":  "safe_paths",
+                                 "weight":  1,
+                                 "guaranteed":  false
+                             },
+                             {
+                                 "cardId":  "ancient_corridors",
+                                 "modifierId":  "dense_growth",
+                                 "weight":  2,
+                                 "guaranteed":  true
+                             },
+                             {
+                                 "cardId":  "profaned_crypt",
+                                 "modifierId":  "elite_presence",
+                                 "weight":  3,
+                                 "guaranteed":  true
+                             }
+                         ],
+    "cardRewardPool":  [
+                           {
+                               "cardId":  "abandoned_path",
+                               "rewardType":  "heal",
+                               "rewardId":  "heal_small",
+                               "weight":  2,
+                               "quantity":  2
+                           },
+                           {
+                               "cardId":  "abandoned_path",
+                               "rewardType":  "consumable",
+                               "rewardId":  "healing_potion",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "unstable_ruins",
+                               "rewardType":  "gold",
+                               "rewardId":  "gold_small",
+                               "weight":  2,
+                               "quantity":  4
+                           },
+                           {
+                               "cardId":  "unstable_ruins",
+                               "rewardType":  "card_unlock",
+                               "rewardId":  "fallen_fortress",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "dark_clearing",
+                               "rewardType":  "heal",
+                               "rewardId":  "heal_small",
+                               "weight":  2,
+                               "quantity":  2
+                           },
+                           {
+                               "cardId":  "dark_clearing",
+                               "rewardType":  "consumable",
+                               "rewardId":  "speed_dose",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "dense_forest",
+                               "rewardType":  "consumable",
+                               "rewardId":  "healing_potion",
+                               "weight":  2,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "dense_forest",
+                               "rewardType":  "card_unlock",
+                               "rewardId":  "cursed_forest",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "calm_marsh",
+                               "rewardType":  "heal",
+                               "rewardId":  "heal_small",
+                               "weight":  2,
+                               "quantity":  2
+                           },
+                           {
+                               "cardId":  "calm_marsh",
+                               "rewardType":  "consumable",
+                               "rewardId":  "guard_token",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "stagnant_waters",
+                               "rewardType":  "consumable",
+                               "rewardId":  "smoke_bomb",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "stagnant_waters",
+                               "rewardType":  "card_unlock",
+                               "rewardId":  "deep_swamp",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "silent_crypt",
+                               "rewardType":  "heal",
+                               "rewardId":  "heal_small",
+                               "weight":  2,
+                               "quantity":  2
+                           },
+                           {
+                               "cardId":  "silent_crypt",
+                               "rewardType":  "consumable",
+                               "rewardId":  "smoke_bomb",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "ancient_corridors",
+                               "rewardType":  "relic",
+                               "rewardId":  "relic_iron_heart",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "ancient_corridors",
+                               "rewardType":  "card_unlock",
+                               "rewardId":  "profaned_crypt",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "fallen_fortress",
+                               "rewardType":  "gold",
+                               "rewardId":  "gold_large",
+                               "weight":  3,
+                               "quantity":  8
+                           },
+                           {
+                               "cardId":  "fallen_fortress",
+                               "rewardType":  "relic",
+                               "rewardId":  "relic_warrior_spirit",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "cursed_forest",
+                               "rewardType":  "gold",
+                               "rewardId":  "gold_large",
+                               "weight":  3,
+                               "quantity":  8
+                           },
+                           {
+                               "cardId":  "cursed_forest",
+                               "rewardType":  "relic",
+                               "rewardId":  "relic_shadow_instinct",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "deep_swamp",
+                               "rewardType":  "gold",
+                               "rewardId":  "gold_large",
+                               "weight":  3,
+                               "quantity":  8
+                           },
+                           {
+                               "cardId":  "deep_swamp",
+                               "rewardType":  "relic",
+                               "rewardId":  "relic_golden_touch",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "profaned_crypt",
+                               "rewardType":  "relic",
+                               "rewardId":  "relic_swift_boots",
+                               "weight":  1,
+                               "quantity":  1
+                           },
+                           {
+                               "cardId":  "profaned_crypt",
+                               "rewardType":  "emerald",
+                               "rewardId":  "emerald_small",
+                               "weight":  1,
+                               "quantity":  1
+                           }
+                       ],
+    "shopOffers":  [
+                       {
+                           "offerId":  "heal_small",
+                           "displayName":  "Curacio Petita",
+                           "description":  "Recupera 8 de vida immediatament.",
+                           "artKey":  "shop_heal_small",
+                           "offerType":  "heal",
+                           "costGold":  6,
+                           "rewardType":  "heal",
+                           "rewardId":  "heal_small",
+                           "rewardQuantity":  8,
+                           "durationSegments":  0,
+                           "effectConfigJson":  "{\"heal\":8}",
+                           "sortOrder":  10,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "heal_large",
+                           "displayName":  "Curacio Gran",
+                           "description":  "Recupera 15 de vida immediatament.",
+                           "artKey":  "shop_heal_large",
+                           "offerType":  "heal",
+                           "costGold":  10,
+                           "rewardType":  "heal",
+                           "rewardId":  "heal_large",
+                           "rewardQuantity":  15,
+                           "durationSegments":  0,
+                           "effectConfigJson":  "{\"heal\":15}",
+                           "sortOrder":  20,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "buff_strength",
+                           "displayName":  "Buff Forca",
+                           "description":  "+2 atac durant el proxim segment.",
+                           "artKey":  "shop_buff_strength",
+                           "offerType":  "buff",
+                           "costGold":  7,
+                           "rewardType":  "buff",
+                           "rewardId":  "strength",
+                           "rewardQuantity":  2,
+                           "durationSegments":  1,
+                           "effectConfigJson":  "{\"attackBonus\":2,\"durationSegments\":1}",
+                           "sortOrder":  30,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "buff_speed",
+                           "displayName":  "Buff Velocitat",
+                           "description":  "+25% velocitat durant el proxim segment.",
+                           "artKey":  "shop_buff_speed",
+                           "offerType":  "buff",
+                           "costGold":  6,
+                           "rewardType":  "buff",
+                           "rewardId":  "speed",
+                           "rewardQuantity":  1,
+                           "durationSegments":  1,
+                           "effectConfigJson":  "{\"speedMultiplierBonus\":1.25,\"durationSegments\":1}",
+                           "sortOrder":  40,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "buff_shield",
+                           "displayName":  "Escut Temporal",
+                           "description":  "+2 defensa durant el proxim segment.",
+                           "artKey":  "shop_buff_shield",
+                           "offerType":  "buff",
+                           "costGold":  7,
+                           "rewardType":  "buff",
+                           "rewardId":  "shield",
+                           "rewardQuantity":  2,
+                           "durationSegments":  1,
+                           "effectConfigJson":  "{\"defenseBonus\":2,\"durationSegments\":1}",
+                           "sortOrder":  50,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "reroll_cards",
+                           "displayName":  "Reroll Cartes",
+                           "description":  "Renova les opcions de cartes.",
+                           "artKey":  "shop_reroll_cards",
+                           "offerType":  "utility",
+                           "costGold":  5,
+                           "rewardType":  "utility",
+                           "rewardId":  "reroll_cards",
+                           "rewardQuantity":  1,
+                           "durationSegments":  0,
+                           "effectConfigJson":  "{\"rerollCards\":true}",
+                           "sortOrder":  60,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "summon_companion",
+                           "displayName":  "Invocar Company",
+                           "description":  "Invoca ajuda temporal per al proxim segment.",
+                           "artKey":  "shop_summon_companion",
+                           "offerType":  "summon",
+                           "costGold":  12,
+                           "rewardType":  "summon",
+                           "rewardId":  "companion",
+                           "rewardQuantity":  1,
+                           "durationSegments":  1,
+                           "effectConfigJson":  "{\"spawnCompanion\":true,\"durationSegments\":1}",
+                           "sortOrder":  70,
+                           "isActive":  true
+                       },
+                       {
+                           "offerId":  "temporary_equipment",
+                           "displayName":  "Equip Temporal",
+                           "description":  "+1 atac i +1 defensa durant 2 segments.",
+                           "artKey":  "shop_temporary_equipment",
+                           "offerType":  "equipment",
+                           "costGold":  9,
+                           "rewardType":  "equipment",
+                           "rewardId":  "equipment",
+                           "rewardQuantity":  1,
+                           "durationSegments":  2,
+                           "effectConfigJson":  "{\"attackBonus\":1,\"defenseBonus\":1,\"durationSegments\":2}",
+                           "sortOrder":  80,
+                           "isActive":  true
+                       }
+                   ],
+    "runResults":  [
+                       {
+                           "resultId":  "run_completed",
+                           "displayName":  "Run completada",
+                           "description":  "Imatge per al resum de victoria al final de la run.",
+                           "artKey":  "run_result_victory",
+                           "sortOrder":  10,
+                           "isActive":  true
+                       },
+                       {
+                           "resultId":  "run_failed",
+                           "displayName":  "Run fallida",
+                           "description":  "Imatge per al resum de derrota al final de la run.",
+                           "artKey":  "run_result_failure",
+                           "sortOrder":  20,
+                           "isActive":  true
+                       },
+                       {
+                           "resultId":  "run_abandoned",
+                           "displayName":  "Run abandonada",
+                           "description":  "Imatge per a una run interrompuda abans del final.",
+                           "artKey":  "run_result_abandoned",
+                           "sortOrder":  30,
+                           "isActive":  true
+                       }
+                   ]
+}

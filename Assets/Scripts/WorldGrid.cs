@@ -10,6 +10,7 @@ public class WorldGrid : MonoBehaviour
 
     [Header("Scene References")]
     [SerializeField] private GoalTile goalTile;
+    [SerializeField] private SpriteRenderer worldBackground;
 
     private GameObject[,] cells;
     private readonly HashSet<Vector2Int> walls = new HashSet<Vector2Int>();
@@ -40,6 +41,7 @@ public class WorldGrid : MonoBehaviour
 
         Instance = this;
         EnsureSegmentRoot();
+        EnsureWorldBackground();
     }
 
     public void GenerateSegment(SegmentRuntimeData runtime, GameObject enemyTemplate)
@@ -64,6 +66,7 @@ public class WorldGrid : MonoBehaviour
         GenerateChests(runtime);
         PlaceGoal(runtime);
         CenterCameraOnSegment();
+        UpdateWorldBackground();
     }
 
     private void GenerateCells(SegmentRuntimeData runtime)
@@ -378,6 +381,47 @@ public class WorldGrid : MonoBehaviour
         rootObject.transform.SetParent(transform);
         rootObject.transform.localPosition = Vector3.zero;
         segmentRoot = rootObject.transform;
+    }
+
+    private void EnsureWorldBackground()
+    {
+        if (worldBackground != null)
+            return;
+
+        Transform backgroundTransform = transform.Find("WorldBackground");
+        if (backgroundTransform != null)
+            worldBackground = backgroundTransform.GetComponent<SpriteRenderer>();
+    }
+
+    private void UpdateWorldBackground()
+    {
+        EnsureWorldBackground();
+        if (worldBackground == null || Width <= 0 || Height <= 0)
+            return;
+
+        Camera camera = Camera.main;
+        float visibleHeight = Height * cellSize;
+        float visibleWidth = Width * cellSize;
+
+        if (camera != null && camera.orthographic)
+        {
+            visibleHeight = camera.orthographicSize * 2f;
+            visibleWidth = visibleHeight * camera.aspect;
+        }
+
+        float width = Mathf.Max(Width * cellSize, visibleWidth) + cellSize * 2f;
+        float height = Mathf.Max(Height * cellSize, visibleHeight) + cellSize * 2f;
+
+        Vector3 currentPosition = worldBackground.transform.position;
+        worldBackground.transform.position = new Vector3(
+            (Width - 1) * cellSize * 0.5f,
+            (Height - 1) * cellSize * 0.5f,
+            currentPosition.z);
+
+        worldBackground.drawMode = SpriteDrawMode.Simple;
+        worldBackground.size = Vector2.one;
+        worldBackground.transform.localScale = new Vector3(width, height, 1f);
+        worldBackground.sortingOrder = -10;
     }
 
     private Sprite GetOrCreateCellSprite()
