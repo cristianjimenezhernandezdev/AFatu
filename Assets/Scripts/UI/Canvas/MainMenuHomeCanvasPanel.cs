@@ -57,6 +57,9 @@ public class MainMenuHomeCanvasPanel : MonoBehaviour
 
         PlayerProfileData profile = runManager.PlayerProfile;
         PlayerProgressData progress = runManager.PlayerProgress;
+        string longRunHint = progress.run7Unlocked
+            ? "La run llarga ja esta disponible. Pots llançar partida o continuar desbloquejant nodes."
+            : "La run llarga es desbloqueja des de l'arbre de millores.";
         RefreshProfileSelector(runManager);
 
         if (titleText != null)
@@ -68,13 +71,11 @@ public class MainMenuHomeCanvasPanel : MonoBehaviour
         if (progressSummaryText != null)
             progressSummaryText.text = $"Runs {progress.completedRuns} completes | {progress.failedRuns} fallides | Segment max {progress.highestSegmentReached}";
         if (unlockedSummaryText != null)
-            unlockedSummaryText.text = $"Cartes {progress.unlockedCardIds.Length} | Poders {progress.unlockedDivinePowerIds.Length} | Biomes {progress.biomesUnlocked.Length}";
+            unlockedSummaryText.text = $"Cartes {progress.unlockedCardIds.Length} | Poders {progress.unlockedDivinePowerIds.Length} | Biomes {progress.biomesUnlocked.Length} | Reliquies {runManager.PlayerRelics.Count}";
         if (selectionSummaryText != null)
-            selectionSummaryText.text = $"Run {profile.preferredRunLength} segments | Mode {profile.selectedHeroMode}";
+            selectionSummaryText.text = $"Run {profile.preferredRunLength} segments | Mode {profile.selectedHeroMode}\n{RelicPresentationUtility.BuildAggregateSummary(runManager.PlayerRelics, runManager.AllRelics)}";
         if (footerHintText != null)
-            footerHintText.text = progress.run7Unlocked
-                ? "La run llarga ja esta disponible. Pots llançar partida o continuar desbloquejant nodes."
-                : "La run llarga es desbloqueja des de l'arbre de millores.";
+            footerHintText.text = $"{longRunHint}\n{RelicPresentationUtility.BuildInventorySummary(runManager.PlayerRelics, runManager.AllRelics, 3)}";
         if (profileFeedbackText != null)
             profileFeedbackText.text = string.IsNullOrWhiteSpace(profileFeedbackMessage)
                 ? "Pots seleccionar un perfil existent o crear-ne un de nou."
@@ -161,5 +162,99 @@ public class MainMenuHomeCanvasPanel : MonoBehaviour
 
             return signature;
         }
+    }
+}
+
+public static class RelicPresentationUtility
+{
+    public static string BuildEffectSummary(RelicSeedData relic)
+    {
+        if (relic == null)
+            return string.Empty;
+
+        return BuildEffectSummary(JsonSeedParser.ParseRelicEffect(relic.effectConfigJson));
+    }
+
+    public static string BuildEffectSummary(RelicEffectConfigData effect)
+    {
+        if (effect == null)
+            return string.Empty;
+
+        List<string> parts = new List<string>();
+        if (effect.heroMaxHealthBonus != 0)
+            parts.Add($"+{effect.heroMaxHealthBonus} vida");
+        if (effect.heroAttackBonus != 0)
+            parts.Add($"+{effect.heroAttackBonus} atac");
+        if (effect.heroSpeedBonus > 0f)
+            parts.Add($"+{effect.heroSpeedBonus * 100f:0}% velocitat");
+        if (effect.extraCardChoice > 0)
+            parts.Add($"+{effect.extraCardChoice} carta");
+
+        return string.Join(", ", parts);
+    }
+
+    public static string BuildAggregateSummary(IReadOnlyList<PlayerRelicData> relics, IReadOnlyList<RelicSeedData> definitions)
+    {
+        int totalHealth = 0;
+        int totalAttack = 0;
+        float totalSpeed = 0f;
+        int totalExtraCards = 0;
+        Dictionary<string, RelicSeedData> byId = (definitions ?? System.Array.Empty<RelicSeedData>())
+            .Where(item => item != null && !string.IsNullOrWhiteSpace(item.relicId))
+            .ToDictionary(item => item.relicId, item => item);
+
+        foreach (PlayerRelicData relic in relics ?? System.Array.Empty<PlayerRelicData>())
+        {
+            if (relic == null || string.IsNullOrWhiteSpace(relic.relicId) || relic.quantity <= 0 || !byId.TryGetValue(relic.relicId, out RelicSeedData definition))
+                continue;
+
+            RelicEffectConfigData effect = JsonSeedParser.ParseRelicEffect(definition.effectConfigJson);
+            totalHealth += effect.heroMaxHealthBonus * relic.quantity;
+            totalAttack += effect.heroAttackBonus * relic.quantity;
+            totalSpeed += effect.heroSpeedBonus * relic.quantity;
+            totalExtraCards += effect.extraCardChoice * relic.quantity;
+        }
+
+        List<string> parts = new List<string>();
+        if (totalHealth != 0)
+            parts.Add($"+{totalHealth} vida");
+        if (totalAttack != 0)
+            parts.Add($"+{totalAttack} atac");
+        if (totalSpeed > 0f)
+            parts.Add($"+{totalSpeed * 100f:0}% velocitat");
+        if (totalExtraCards > 0)
+            parts.Add($"+{totalExtraCards} carta");
+
+        return parts.Count == 0 ? "Sense bonus de reliquia." : $"Bonus reliquies: {string.Join(", ", parts)}";
+    }
+
+    public static string BuildInventorySummary(IReadOnlyList<PlayerRelicData> relics, IReadOnlyList<RelicSeedData> definitions, int maxEntries)
+    {
+        Dictionary<string, RelicSeedData> byId = (definitions ?? System.Array.Empty<RelicSeedData>())
+            .Where(item => item != null && !string.IsNullOrWhiteSpace(item.relicId))
+            .ToDictionary(item => item.relicId, item => item);
+
+        List<string> entries = new List<string>();
+        foreach (PlayerRelicData relic in (relics ?? System.Array.Empty<PlayerRelicData>()).Where(item => item != null && item.quantity > 0).OrderBy(item => item.relicId).Take(maxEntries))
+        {
+            if (!byId.TryGetValue(relic.relicId, out RelicSeedData definition))
+            {
+                entries.Add(relic.quantity > 1 ? $"{relic.relicId} x{relic.quantity}" : relic.relicId);
+                continue;
+            }
+
+            string quantitySuffix = relic.quantity > 1 ? $" x{relic.quantity}" : string.Empty;
+            string effectSummary = BuildEffectSummary(definition);
+            entries.Add(string.IsNullOrWhiteSpace(effectSummary)
+                ? $"{definition.displayName}{quantitySuffix}"
+                : $"{definition.displayName}{quantitySuffix} ({effectSummary})");
+        }
+
+        if (entries.Count == 0)
+            return "Reliquies: cap.";
+
+        int totalOwned = (relics ?? System.Array.Empty<PlayerRelicData>()).Count(item => item != null && item.quantity > 0);
+        string suffix = totalOwned > entries.Count ? " ..." : string.Empty;
+        return $"Reliquies: {string.Join(" | ", entries)}{suffix}";
     }
 }

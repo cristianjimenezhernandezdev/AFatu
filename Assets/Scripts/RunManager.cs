@@ -45,6 +45,7 @@ public class RunManager : MonoBehaviour
     private PlayerProgressData playerProgress;
     private List<PlayerCardUnlockData> playerCardUnlocks = new List<PlayerCardUnlockData>();
     private List<PlayerDivinePowerUnlockData> playerDivinePowerUnlocks = new List<PlayerDivinePowerUnlockData>();
+    private List<PlayerRelicData> playerRelics = new List<PlayerRelicData>();
     private List<PlayerConsumableStackData> playerConsumables = new List<PlayerConsumableStackData>();
     private List<PendingHeroBonusData> pendingHeroBonuses = new List<PendingHeroBonusData>();
 
@@ -82,10 +83,12 @@ public class RunManager : MonoBehaviour
     public IReadOnlyList<PlayerProfileSummaryData> AvailableProfiles => progressionRepository?.LoadProfileSummaries() ?? System.Array.Empty<PlayerProfileSummaryData>();
     public IReadOnlyList<PlayerCardUnlockData> PlayerCardUnlocks => playerCardUnlocks;
     public IReadOnlyList<PlayerDivinePowerUnlockData> PlayerDivinePowerUnlocks => playerDivinePowerUnlocks;
+    public IReadOnlyList<PlayerRelicData> PlayerRelics => playerRelics;
     public IReadOnlyList<PlayerConsumableStackData> PlayerConsumables => playerConsumables;
     public IReadOnlyList<CardSeedData> AllCards => contentRepository?.GetCards() ?? System.Array.Empty<CardSeedData>();
     public IReadOnlyList<DivinePowerSeedData> AllDivinePowers => contentRepository?.GetDivinePowers() ?? System.Array.Empty<DivinePowerSeedData>();
     public IReadOnlyList<BiomeSeedData> AllBiomes => contentRepository?.GetBiomes() ?? System.Array.Empty<BiomeSeedData>();
+    public IReadOnlyList<RelicSeedData> AllRelics => contentRepository?.GetRelics() ?? System.Array.Empty<RelicSeedData>();
     public IReadOnlyList<ConsumableSeedData> AllConsumables => consumableSystem?.AvailableConsumables ?? System.Array.Empty<ConsumableSeedData>();
 
     public string GetCurrentRunResultId()
@@ -845,10 +848,10 @@ public class RunManager : MonoBehaviour
                 feedbackMessage = $"Consumible obtingut: {reward.rewardId}.";
                 break;
             case "relic":
-                UnlockRelic(reward.rewardId);
+                PlayerRelicData relicEntry = UnlockRelic(reward.rewardId);
                 ApplyRelicToCurrentRun(reward.rewardId);
                 runRepository.AddReward(currentRun.runId, currentSegment.segment.runSegmentId, reward.rewardType, reward.rewardId, reward.quantity, "{}");
-                feedbackMessage = $"Relic trobada: {reward.rewardId}.";
+                feedbackMessage = BuildRelicRewardFeedback(reward.rewardId, relicEntry);
                 break;
             case "card_unlock":
                 UnlockCard(reward.rewardId);
@@ -868,7 +871,7 @@ public class RunManager : MonoBehaviour
 
     private void ApplyRelicToCurrentRun(string relicId)
     {
-        RelicSeedData relic = contentRepository.GetRelics().FirstOrDefault(item => item.relicId == relicId);
+        RelicSeedData relic = FindRelicDefinition(relicId);
         if (relic == null)
             return;
 
@@ -901,18 +904,20 @@ public class RunManager : MonoBehaviour
     private HeroStatsData BuildHeroStatsFromProgress()
     {
         HeroStatsData stats = new HeroStatsData();
-        List<string> unlockedRelics = playerProgress.unlockedRelicIds?.ToList() ?? new List<string>();
-
-        foreach (string relicId in unlockedRelics)
+        for (int i = 0; i < playerRelics.Count; i++)
         {
-            RelicSeedData relic = contentRepository.GetRelics().FirstOrDefault(item => item.relicId == relicId);
+            PlayerRelicData relicStack = playerRelics[i];
+            if (relicStack == null || string.IsNullOrWhiteSpace(relicStack.relicId) || relicStack.quantity <= 0)
+                continue;
+
+            RelicSeedData relic = FindRelicDefinition(relicStack.relicId);
             if (relic == null)
                 continue;
 
             RelicEffectConfigData effect = JsonSeedParser.ParseRelicEffect(relic.effectConfigJson);
-            stats.maxHealth += effect.heroMaxHealthBonus;
-            stats.attack += effect.heroAttackBonus;
-            stats.speed += effect.heroSpeedBonus;
+            stats.maxHealth += effect.heroMaxHealthBonus * relicStack.quantity;
+            stats.attack += effect.heroAttackBonus * relicStack.quantity;
+            stats.speed += effect.heroSpeedBonus * relicStack.quantity;
         }
 
         stats.currentHealth = stats.maxHealth;
@@ -1040,6 +1045,33 @@ public class RunManager : MonoBehaviour
                 .ToList();
         }
 
+        playerRelics = NormalizeRelicInventory(playerRelics);
+        if (playerRelics != null)
+        {
+            for (int i = 0; i < playerRelics.Count; i++)
+                playerRelics[i].playerId = localPlayerId;
+        }
+
+        if (playerRelics.Count == 0 && playerProgress.unlockedRelicIds != null && playerProgress.unlockedRelicIds.Length > 0)
+        {
+            string timestamp = System.DateTime.UtcNow.ToString("o");
+            playerRelics = playerProgress.unlockedRelicIds
+                .Where(relicId => !string.IsNullOrWhiteSpace(relicId))
+                .Distinct()
+                .Select(relicId => new PlayerRelicData
+                {
+                    playerId = localPlayerId,
+                    relicId = relicId,
+                    quantity = 1,
+                    firstObtainedAtUtc = timestamp,
+                    lastObtainedAtUtc = timestamp
+                })
+                .ToList();
+        }
+
+        if (playerProgress.unlockedRelicIds == null || playerProgress.unlockedRelicIds.Length == 0 || playerRelics.Count > 0)
+            playerProgress.unlockedRelicIds = playerRelics.Select(item => item.relicId).Distinct().ToArray();
+
         if (playerConsumables != null)
         {
             for (int i = 0; i < playerConsumables.Count; i++)
@@ -1072,9 +1104,10 @@ public class RunManager : MonoBehaviour
         playerProfile.lastSeenAtUtc = System.DateTime.UtcNow.ToString("o");
         playerProgress.totalCardsUnlocked = GetUnlockedCardIds().Count;
         playerProgress.unlockedCardIds = GetUnlockedCardIds().ToArray();
+        playerProgress.unlockedRelicIds = playerRelics.Select(item => item.relicId).Distinct().ToArray();
         playerProgress.unlockedDivinePowerIds = playerDivinePowerUnlocks.Select(item => item.powerId).Distinct().ToArray();
         playerProgress.softCurrency = 0;
-        progressionRepository.Save(playerProfile, playerProgress, playerCardUnlocks, playerDivinePowerUnlocks, playerConsumables);
+        progressionRepository.Save(playerProfile, playerProgress, playerCardUnlocks, playerDivinePowerUnlocks, playerRelics, playerConsumables);
     }
 
     private List<string> GetUnlockedCardIds()
@@ -1099,14 +1132,32 @@ public class RunManager : MonoBehaviour
         if (currentRun != null) currentRun.cardsUnlockedThisRun += 1;
     }
 
-    private void UnlockRelic(string relicId)
+    private PlayerRelicData UnlockRelic(string relicId)
     {
-        List<string> unlockedRelics = playerProgress.unlockedRelicIds?.ToList() ?? new List<string>();
-        if (unlockedRelics.Contains(relicId))
-            return;
+        if (string.IsNullOrWhiteSpace(relicId))
+            return null;
 
-        unlockedRelics.Add(relicId);
-        playerProgress.unlockedRelicIds = unlockedRelics.ToArray();
+        string now = System.DateTime.UtcNow.ToString("o");
+        PlayerRelicData ownedRelic = playerRelics.FirstOrDefault(item => item.relicId == relicId);
+        if (ownedRelic == null)
+        {
+            ownedRelic = new PlayerRelicData
+            {
+                playerId = localPlayerId,
+                relicId = relicId,
+                quantity = 0,
+                firstObtainedAtUtc = now,
+                lastObtainedAtUtc = now
+            };
+            playerRelics.Add(ownedRelic);
+        }
+
+        ownedRelic.quantity = Mathf.Max(0, ownedRelic.quantity) + 1;
+        if (string.IsNullOrWhiteSpace(ownedRelic.firstObtainedAtUtc))
+            ownedRelic.firstObtainedAtUtc = now;
+        ownedRelic.lastObtainedAtUtc = now;
+        playerProgress.unlockedRelicIds = playerRelics.Select(item => item.relicId).Distinct().ToArray();
+        return ownedRelic;
     }
 
     private GameObject ResolveEnemyTemplate()
@@ -1163,8 +1214,61 @@ public class RunManager : MonoBehaviour
         playerProgress = progressionRepository.LoadProgress(localPlayerId) ?? new PlayerProgressData { playerId = localPlayerId };
         playerCardUnlocks = progressionRepository.LoadCardUnlocks(localPlayerId)?.ToList() ?? new List<PlayerCardUnlockData>();
         playerDivinePowerUnlocks = progressionRepository.LoadDivinePowerUnlocks(localPlayerId)?.ToList() ?? new List<PlayerDivinePowerUnlockData>();
+        playerRelics = progressionRepository.LoadRelics(localPlayerId)?.ToList() ?? new List<PlayerRelicData>();
         playerConsumables = progressionRepository.LoadConsumableStacks(localPlayerId)?.ToList() ?? new List<PlayerConsumableStackData>();
         EnsureProgressConsistency();
+    }
+
+    private RelicSeedData FindRelicDefinition(string relicId)
+    {
+        return contentRepository?.GetRelics().FirstOrDefault(item => item.relicId == relicId);
+    }
+
+    private string BuildRelicRewardFeedback(string relicId, PlayerRelicData relicEntry)
+    {
+        RelicSeedData relic = FindRelicDefinition(relicId);
+        if (relic == null)
+            return $"Relic trobada: {relicId}.";
+
+        string effectSummary = RelicPresentationUtility.BuildEffectSummary(relic);
+        string quantitySummary = relicEntry != null && relicEntry.quantity > 1
+            ? $" Col.leccio x{relicEntry.quantity}."
+            : " Afegida a la col.leccio.";
+
+        return string.IsNullOrWhiteSpace(effectSummary)
+            ? $"Relic trobada: {relic.displayName}.{quantitySummary}"
+            : $"Relic trobada: {relic.displayName} ({effectSummary}).{quantitySummary}";
+    }
+
+    private static List<PlayerRelicData> NormalizeRelicInventory(IEnumerable<PlayerRelicData> relics)
+    {
+        Dictionary<string, PlayerRelicData> merged = new Dictionary<string, PlayerRelicData>();
+        foreach (PlayerRelicData relic in relics ?? System.Array.Empty<PlayerRelicData>())
+        {
+            if (relic == null || string.IsNullOrWhiteSpace(relic.relicId))
+                continue;
+
+            if (!merged.TryGetValue(relic.relicId, out PlayerRelicData stored))
+            {
+                merged[relic.relicId] = new PlayerRelicData
+                {
+                    playerId = relic.playerId,
+                    relicId = relic.relicId,
+                    quantity = Mathf.Max(1, relic.quantity),
+                    firstObtainedAtUtc = relic.firstObtainedAtUtc,
+                    lastObtainedAtUtc = relic.lastObtainedAtUtc
+                };
+                continue;
+            }
+
+            stored.quantity += Mathf.Max(1, relic.quantity);
+            if (string.IsNullOrWhiteSpace(stored.firstObtainedAtUtc) || string.CompareOrdinal(relic.firstObtainedAtUtc, stored.firstObtainedAtUtc) < 0)
+                stored.firstObtainedAtUtc = relic.firstObtainedAtUtc;
+            if (string.IsNullOrWhiteSpace(stored.lastObtainedAtUtc) || string.CompareOrdinal(relic.lastObtainedAtUtc, stored.lastObtainedAtUtc) > 0)
+                stored.lastObtainedAtUtc = relic.lastObtainedAtUtc;
+        }
+
+        return merged.Values.OrderBy(item => item.relicId).ToList();
     }
 
     private bool IsRunInProgress()

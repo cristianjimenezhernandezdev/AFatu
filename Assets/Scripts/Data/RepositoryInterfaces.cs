@@ -31,10 +31,11 @@ public interface IProgressionRepository
     PlayerProgressData LoadProgress(string playerId);
     IReadOnlyList<PlayerCardUnlockData> LoadCardUnlocks(string playerId);
     IReadOnlyList<PlayerDivinePowerUnlockData> LoadDivinePowerUnlocks(string playerId);
+    IReadOnlyList<PlayerRelicData> LoadRelics(string playerId);
     IReadOnlyList<PlayerConsumableStackData> LoadConsumableStacks(string playerId);
     bool SetActiveProfile(string playerId);
     PlayerProfileData CreateProfile(string displayName);
-    void Save(PlayerProfileData profile, PlayerProgressData progress, IReadOnlyList<PlayerCardUnlockData> cardUnlocks, IReadOnlyList<PlayerDivinePowerUnlockData> divinePowerUnlocks, IReadOnlyList<PlayerConsumableStackData> consumables);
+    void Save(PlayerProfileData profile, PlayerProgressData progress, IReadOnlyList<PlayerCardUnlockData> cardUnlocks, IReadOnlyList<PlayerDivinePowerUnlockData> divinePowerUnlocks, IReadOnlyList<PlayerRelicData> relics, IReadOnlyList<PlayerConsumableStackData> consumables);
 }
 
 public interface IRunRepository

@@ -7,6 +7,7 @@ public class LocalPlayerSeed
     public PlayerProgressData progress = new PlayerProgressData();
     public PlayerCardUnlockData[] cardUnlocks = Array.Empty<PlayerCardUnlockData>();
     public PlayerDivinePowerUnlockData[] divinePowerUnlocks = Array.Empty<PlayerDivinePowerUnlockData>();
+    public PlayerRelicData[] relics = Array.Empty<PlayerRelicData>();
     public PlayerConsumableStackData[] consumables = Array.Empty<PlayerConsumableStackData>();
 }
 
@@ -18,6 +19,7 @@ public class LocalProgressionDatabaseSeed
     public PlayerProgressData[] playerProgress = Array.Empty<PlayerProgressData>();
     public PlayerCardUnlockData[] playerCardUnlocks = Array.Empty<PlayerCardUnlockData>();
     public PlayerDivinePowerUnlockData[] playerDivinePowerUnlocks = Array.Empty<PlayerDivinePowerUnlockData>();
+    public PlayerRelicData[] playerRelics = Array.Empty<PlayerRelicData>();
     public PlayerConsumableStackData[] playerConsumables = Array.Empty<PlayerConsumableStackData>();
 }
 
@@ -90,4 +92,14 @@ public class PlayerConsumableStackData
     public string playerId;
     public string consumableId;
     public int quantity;
+}
+
+[Serializable]
+public class PlayerRelicData
+{
+    public string playerId;
+    public string relicId;
+    public int quantity = 1;
+    public string firstObtainedAtUtc = string.Empty;
+    public string lastObtainedAtUtc = string.Empty;
 }

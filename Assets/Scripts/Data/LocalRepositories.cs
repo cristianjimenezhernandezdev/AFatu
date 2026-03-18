@@ -138,6 +138,15 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
             .ToArray();
     }
 
+    public IReadOnlyList<PlayerRelicData> LoadRelics(string playerId)
+    {
+        EnsureActiveProfile();
+        return cachedDatabase.playerRelics
+            .Where(item => item != null && item.playerId == playerId)
+            .Select(CloneRelic)
+            .ToArray();
+    }
+
     public IReadOnlyList<PlayerConsumableStackData> LoadConsumableStacks(string playerId)
     {
         EnsureActiveProfile();
@@ -193,6 +202,20 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
         for (int i = 0; i < divinePowerUnlocks.Length; i++)
             divinePowerUnlocks[i].playerId = playerId;
 
+        PlayerRelicData[] relics = (defaultTemplate.relics ?? Array.Empty<PlayerRelicData>())
+            .Select(CloneRelic)
+            .Where(item => item != null)
+            .ToArray();
+        for (int i = 0; i < relics.Length; i++)
+        {
+            relics[i].playerId = playerId;
+            if (string.IsNullOrWhiteSpace(relics[i].firstObtainedAtUtc))
+                relics[i].firstObtainedAtUtc = now;
+            if (string.IsNullOrWhiteSpace(relics[i].lastObtainedAtUtc))
+                relics[i].lastObtainedAtUtc = now;
+            relics[i].quantity = Mathf.Max(1, relics[i].quantity);
+        }
+
         PlayerConsumableStackData[] consumables = (defaultTemplate.consumables ?? Array.Empty<PlayerConsumableStackData>())
             .Select(CloneConsumable)
             .Where(item => item != null)
@@ -204,6 +227,7 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
         cachedDatabase.playerProgress = cachedDatabase.playerProgress.Concat(new[] { progress }).ToArray();
         cachedDatabase.playerCardUnlocks = cachedDatabase.playerCardUnlocks.Concat(cardUnlocks).ToArray();
         cachedDatabase.playerDivinePowerUnlocks = cachedDatabase.playerDivinePowerUnlocks.Concat(divinePowerUnlocks).ToArray();
+        cachedDatabase.playerRelics = cachedDatabase.playerRelics.Concat(relics).ToArray();
         cachedDatabase.playerConsumables = cachedDatabase.playerConsumables.Concat(consumables).ToArray();
         cachedDatabase.activePlayerId = playerId;
 
@@ -211,7 +235,7 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
         return CloneProfile(profile);
     }
 
-    public void Save(PlayerProfileData profile, PlayerProgressData progress, IReadOnlyList<PlayerCardUnlockData> cardUnlocks, IReadOnlyList<PlayerDivinePowerUnlockData> divinePowerUnlocks, IReadOnlyList<PlayerConsumableStackData> consumables)
+    public void Save(PlayerProfileData profile, PlayerProgressData progress, IReadOnlyList<PlayerCardUnlockData> cardUnlocks, IReadOnlyList<PlayerDivinePowerUnlockData> divinePowerUnlocks, IReadOnlyList<PlayerRelicData> relics, IReadOnlyList<PlayerConsumableStackData> consumables)
     {
         EnsureActiveProfile();
 
@@ -242,6 +266,19 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
             .Concat((divinePowerUnlocks ?? Array.Empty<PlayerDivinePowerUnlockData>()).Select(CloneDivinePowerUnlock).Where(item => item != null).Select(item =>
             {
                 item.playerId = playerId;
+                return item;
+            }))
+            .ToArray();
+        cachedDatabase.playerRelics = cachedDatabase.playerRelics
+            .Where(item => item != null && item.playerId != playerId)
+            .Concat((relics ?? Array.Empty<PlayerRelicData>()).Select(CloneRelic).Where(item => item != null).Select(item =>
+            {
+                item.playerId = playerId;
+                item.quantity = Mathf.Max(1, item.quantity);
+                if (string.IsNullOrWhiteSpace(item.firstObtainedAtUtc))
+                    item.firstObtainedAtUtc = now;
+                if (string.IsNullOrWhiteSpace(item.lastObtainedAtUtc))
+                    item.lastObtainedAtUtc = now;
                 return item;
             }))
             .ToArray();
@@ -335,6 +372,20 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
         for (int i = 0; i < divinePowerUnlocks.Length; i++)
             divinePowerUnlocks[i].playerId = playerId;
 
+        PlayerRelicData[] relics = (safeSeed.relics != null && safeSeed.relics.Length > 0
+                ? safeSeed.relics.Select(CloneRelic).Where(item => item != null)
+                : BuildRelicsFromUnlockedIds(playerId, progress.unlockedRelicIds, now))
+            .ToArray();
+        for (int i = 0; i < relics.Length; i++)
+        {
+            relics[i].playerId = playerId;
+            relics[i].quantity = Mathf.Max(1, relics[i].quantity);
+            if (string.IsNullOrWhiteSpace(relics[i].firstObtainedAtUtc))
+                relics[i].firstObtainedAtUtc = now;
+            if (string.IsNullOrWhiteSpace(relics[i].lastObtainedAtUtc))
+                relics[i].lastObtainedAtUtc = now;
+        }
+
         PlayerConsumableStackData[] consumables = (safeSeed.consumables ?? Array.Empty<PlayerConsumableStackData>())
             .Select(CloneConsumable)
             .Where(item => item != null)
@@ -349,6 +400,7 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
             playerProgress = new[] { progress },
             playerCardUnlocks = cardUnlocks,
             playerDivinePowerUnlocks = divinePowerUnlocks,
+            playerRelics = relics,
             playerConsumables = consumables
         };
     }
@@ -498,6 +550,21 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
         };
     }
 
+    private static PlayerRelicData CloneRelic(PlayerRelicData source)
+    {
+        if (source == null)
+            return null;
+
+        return new PlayerRelicData
+        {
+            playerId = source.playerId,
+            relicId = source.relicId,
+            quantity = Mathf.Max(1, source.quantity),
+            firstObtainedAtUtc = source.firstObtainedAtUtc,
+            lastObtainedAtUtc = source.lastObtainedAtUtc
+        };
+    }
+
     private static PlayerConsumableStackData CloneConsumable(PlayerConsumableStackData source)
     {
         if (source == null)
@@ -509,6 +576,21 @@ public sealed class LocalFileProgressionRepository : IProgressionRepository
             consumableId = source.consumableId,
             quantity = source.quantity
         };
+    }
+
+    private static IEnumerable<PlayerRelicData> BuildRelicsFromUnlockedIds(string playerId, IEnumerable<string> relicIds, string timestampUtc)
+    {
+        return (relicIds ?? Array.Empty<string>())
+            .Where(relicId => !string.IsNullOrWhiteSpace(relicId))
+            .Distinct()
+            .Select(relicId => new PlayerRelicData
+            {
+                playerId = playerId,
+                relicId = relicId,
+                quantity = 1,
+                firstObtainedAtUtc = timestampUtc,
+                lastObtainedAtUtc = timestampUtc
+            });
     }
 }
 

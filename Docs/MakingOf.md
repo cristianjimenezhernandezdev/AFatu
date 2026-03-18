@@ -1955,3 +1955,60 @@ No es tracta només d'afegir una tecla mes, sino de tancar millor la relacio ent
 - i decisions tactiques durant el segment.
 
 En resum, aquesta iteracio millora tant el valor de la BDD com la qualitat de la run, perquè reaprofita sistemes que ja existien en dades i els converteix en joc real.
+
+## Actualitzacio posterior. Segona iteracio de reliquies i inventari persistent
+
+La segona iteracio s'ha centrat a donar consistencia real al bloc de reliquies, que fins ara existia de manera parcial: el joc ja podia atorgar-ne com a recompensa i aplicar-ne alguns efectes, pero la persistencia continuava depenent sobretot de `unlockedRelicIds` dins del progres general.
+
+Per tant, el primer objectiu ha estat acostar la implementacio local al model `player_relics` definit a la BDD.
+
+### Canvi de model de dades local
+
+S'ha afegit un model nou `PlayerRelicData` i el repositori local ara manté:
+
+- `relicId`;
+- `quantity`;
+- `firstObtainedAtUtc`;
+- `lastObtainedAtUtc`;
+- i la vinculacio amb `playerId`.
+
+Amb aixo, el guardat local deixa de tractar les reliquies només com una llista de claus desbloquejades i passa a conservar una col.leccio persistent mes alineada amb l'esquema final.
+
+### Migracio i compatibilitat
+
+També s'ha resolt la compatibilitat amb partides anteriors.
+
+Si el fitxer existent només tenia `unlockedRelicIds`, el repositori reconstrueix automàticament la col.leccio de reliquies persistents amb quantitat inicial `1` i timestamps coherents. Això evita perdre progres anterior i permet evolucionar el format sense trencar perfils ja creats.
+
+### Canvis al runtime
+
+El `RunManager` ara carrega i desa la col.leccio real de reliquies del perfil actiu.
+
+A mes:
+
+- normalitza duplicats si apareixen al guardat;
+- manté sincronitzat `unlockedRelicIds` com a derivat de la col.leccio persistent;
+- incrementa quantitat i timestamps quan una reliquia es torna a obtindre;
+- i calcula els bonus base de l'heroi a partir de `playerRelics`, respectant la quantitat acumulada.
+
+Aixo vol dir que la persistencia i l'efecte en gameplay ja segueixen la mateixa font de veritat.
+
+### Beneficis visibles per al jugador
+
+Per no deixar les reliquies amagades en dades internes, el menu principal ara mostra:
+
+- nombre de reliquies del perfil;
+- resum agregat de bonus actius;
+- i un inventari resumit amb noms i efectes visibles.
+
+També s'ha millorat el feedback quan s'obte una reliquia durant la run, mostrant el nom llegible, el benefici principal i la quantitat acumulada dins de la col.leccio.
+
+### Valor d'aquesta iteracio
+
+Amb aquest pas, la iteracio 2 compleix els tres punts marcats a la guia:
+
+- hi ha col.leccio persistent de reliquies;
+- els beneficis son visibles;
+- i la implementacio local queda coherent amb `player_relics`.
+
+A nivell de projecte, es un pas important perquè transforma les reliquies d'un simple flag de progres en una part real de l'inventari meta del jugador.

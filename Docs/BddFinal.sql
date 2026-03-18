@@ -298,15 +298,16 @@ create table player_consumables (
 -- ---------------------------------------------------------------------------
 -- Execucio de runs
 -- ---------------------------------------------------------------------------
+-- Aquest bloc guarda nomes historial de runs finalitzades.
+-- Si el joc es tanca o s'interromp a mitja run, no s'ha de persistir res.
 
 create table run_sessions (
     run_id bigint generated always as identity primary key,
     player_id text not null references players(player_id),
     run_seed text not null,
-    status text not null default 'active' check (status in ('active', 'completed', 'failed', 'abandoned')),
+    status text not null check (status in ('completed', 'failed')),
     starting_card_id text not null references cards(card_id),
     target_segment_count integer not null default 5 check (target_segment_count in (5, 7)),
-    current_segment_index integer not null default 1 check (current_segment_index > 0),
     segments_cleared integer not null default 0 check (segments_cleared >= 0),
     hero_mode text not null default 'prudent' check (hero_mode in ('prudent', 'aggressive', 'escape')),
     hero_max_health integer not null default 30 check (hero_max_health > 0),
@@ -318,12 +319,10 @@ create table run_sessions (
     gold_earned integer not null default 0 check (gold_earned >= 0),
     gold_spent integer not null default 0 check (gold_spent >= 0),
     emeralds_earned integer not null default 0 check (emeralds_earned >= 0),
-    current_gold integer not null default 0 check (current_gold >= 0),
-    current_emeralds integer not null default 0 check (current_emeralds >= 0),
-    shop_available boolean not null default false,
-    started_at timestamptz not null default now(),
-    ended_at timestamptz,
-    run_notes jsonb not null default '{}'::jsonb
+    started_at timestamptz not null,
+    ended_at timestamptz not null,
+    run_notes jsonb not null default '{}'::jsonb,
+    check (ended_at >= started_at)
 );
 
 create table run_equipped_divine_powers (
@@ -362,7 +361,7 @@ create table run_segments (
     elite_chance real not null default 0.00 check (elite_chance >= 0 and elite_chance <= 1),
     generated_seed text not null,
     difficulty_multiplier real not null default 1.0 check (difficulty_multiplier > 0),
-    state text not null default 'generated' check (state in ('generated', 'in_progress', 'completed', 'failed')),
+    state text not null check (state in ('cleared', 'failed')),
     hero_health_on_enter integer not null default 30 check (hero_health_on_enter >= 0),
     hero_health_on_exit integer check (hero_health_on_exit >= 0),
     card_type text not null default 'balanced',
@@ -469,7 +468,7 @@ create index idx_card_modifier_pool_card on card_modifier_pool (card_id);
 create index idx_card_reward_pool_card on card_reward_pool (card_id);
 create index idx_player_card_unlocks_player on player_card_unlocks (player_id);
 create index idx_player_divine_unlocks_player on player_divine_power_unlocks (player_id);
-create index idx_run_sessions_player on run_sessions (player_id, status);
+create index idx_run_sessions_player on run_sessions (player_id, ended_at desc);
 create index idx_run_segments_run on run_segments (run_id, segment_index);
 create index idx_run_segment_choices_run on run_segment_choices (run_id, segment_index);
 create index idx_run_segment_enemies_segment on run_segment_enemies (run_segment_id, defeated);
@@ -574,8 +573,7 @@ insert into shop_offer_definitions (
 
 insert into run_result_definitions (result_id, display_name, description, art_key, sort_order) values
 ('run_completed', 'Run completada', 'Imatge per al resum de victoria al final de la run.', 'run_result_victory', 10),
-('run_failed', 'Run fallida', 'Imatge per al resum de derrota al final de la run.', 'run_result_failure', 20),
-('run_abandoned', 'Run abandonada', 'Imatge per a una run interrompuda abans del final.', 'run_result_abandoned', 30);
+('run_failed', 'Run fallida', 'Imatge per al resum de derrota al final de la run.', 'run_result_failure', 20);
 -- ---------------------------------------------------------------------------
 -- Seed de cartes
 -- ---------------------------------------------------------------------------
