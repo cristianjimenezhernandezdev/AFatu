@@ -25,11 +25,15 @@ public interface IContentRepository
 
 public interface IProgressionRepository
 {
+    string GetActivePlayerId();
+    IReadOnlyList<PlayerProfileSummaryData> LoadProfileSummaries();
     PlayerProfileData LoadProfile(string playerId);
     PlayerProgressData LoadProgress(string playerId);
     IReadOnlyList<PlayerCardUnlockData> LoadCardUnlocks(string playerId);
     IReadOnlyList<PlayerDivinePowerUnlockData> LoadDivinePowerUnlocks(string playerId);
     IReadOnlyList<PlayerConsumableStackData> LoadConsumableStacks(string playerId);
+    bool SetActiveProfile(string playerId);
+    PlayerProfileData CreateProfile(string displayName);
     void Save(PlayerProfileData profile, PlayerProgressData progress, IReadOnlyList<PlayerCardUnlockData> cardUnlocks, IReadOnlyList<PlayerDivinePowerUnlockData> divinePowerUnlocks, IReadOnlyList<PlayerConsumableStackData> consumables);
 }
 

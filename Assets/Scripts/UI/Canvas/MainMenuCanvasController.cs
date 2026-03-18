@@ -24,6 +24,7 @@ public class MainMenuCanvasController : MonoBehaviour
     [SerializeField] private bool showMenuOnAwake = true;
 
     private MenuScreen currentScreen = MenuScreen.Hidden;
+    public RunManager RunManager => runManager;
 
     void Awake()
     {
@@ -113,6 +114,28 @@ public class MainMenuCanvasController : MonoBehaviour
     {
         runManager?.SetPreferredHeroMode(heroMode);
         homePanel?.Refresh(runManager);
+    }
+
+    public bool TrySelectProfile(string playerId, out string feedback)
+    {
+        feedback = "No hi ha cap RunManager disponible.";
+        bool result = runManager != null && runManager.TrySelectProfile(playerId, out feedback);
+        RefreshPanels();
+        return result;
+    }
+
+    public bool TryCreateProfile(string displayName, out string feedback)
+    {
+        feedback = "No hi ha cap RunManager disponible.";
+        bool result = runManager != null && runManager.TryCreateProfile(displayName, out feedback);
+        RefreshPanels();
+        return result;
+    }
+
+    public void RefreshPanels()
+    {
+        homePanel?.Refresh(runManager);
+        techTreePanel?.Refresh(runManager);
     }
 
     public bool TryPurchaseTechNode(string nodeId, out string feedback)

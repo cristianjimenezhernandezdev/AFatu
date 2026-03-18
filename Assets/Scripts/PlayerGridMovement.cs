@@ -29,6 +29,9 @@ public class PlayerGridMovement : MonoBehaviour
     private int divineDefenseBonus;
     private float divineSpeedMultiplier = 1f;
 
+    private int consumableDefenseBonus;
+    private float consumableSpeedMultiplier = 1f;
+
     private float lastCombatTimestamp = -999f;
     private int lastCombatDamageDealt;
     private int lastCombatDamageTaken;
@@ -52,8 +55,8 @@ public class PlayerGridMovement : MonoBehaviour
     public int CurrentHealth { get; private set; } = BalanceConfig.HeroBaseMaxHealth;
     public int MaxHealth => Mathf.Max(1, baseStats.maxHealth + segmentMaxHealthBonus);
     public int Attack => Mathf.Max(1, baseStats.attack + segmentAttackBonus + divineAttackBonus);
-    public int Defense => Mathf.Max(0, baseStats.defense + segmentDefenseBonus + divineDefenseBonus);
-    public float CombatSpeed => Mathf.Max(0.1f, baseStats.speed * Mathf.Max(0.25f, segmentSpeedMultiplier) * Mathf.Max(0.25f, divineSpeedMultiplier));
+    public int Defense => Mathf.Max(0, baseStats.defense + segmentDefenseBonus + divineDefenseBonus + consumableDefenseBonus);
+    public float CombatSpeed => Mathf.Max(0.1f, baseStats.speed * Mathf.Max(0.25f, segmentSpeedMultiplier) * Mathf.Max(0.25f, divineSpeedMultiplier) * Mathf.Max(0.25f, consumableSpeedMultiplier));
 
     void Start()
     {
@@ -98,6 +101,12 @@ public class PlayerGridMovement : MonoBehaviour
         divineAttackBonus = attackBonus;
         divineDefenseBonus = defenseBonus;
         divineSpeedMultiplier = speedMultiplier <= 0f ? 1f : speedMultiplier;
+    }
+
+    public void SetConsumableBonuses(int defenseBonus, float speedMultiplier)
+    {
+        consumableDefenseBonus = defenseBonus;
+        consumableSpeedMultiplier = speedMultiplier <= 0f ? 1f : speedMultiplier;
     }
 
     public bool TryMove(Vector2Int newGridPosition)
@@ -193,6 +202,8 @@ public class PlayerGridMovement : MonoBehaviour
         divineAttackBonus = 0;
         divineDefenseBonus = 0;
         divineSpeedMultiplier = 1f;
+        consumableDefenseBonus = 0;
+        consumableSpeedMultiplier = 1f;
         lastCombatTimestamp = -999f;
         lastCombatDamageDealt = 0;
         lastCombatDamageTaken = 0;

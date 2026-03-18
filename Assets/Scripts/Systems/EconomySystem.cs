@@ -10,9 +10,8 @@ public sealed class EconomySystem
     public EconomySystem(PlayerProgressData progress, IReadOnlyList<PlayerConsumableStackData> consumables)
     {
         this.progress = progress;
-        consumableStacks = consumables != null
-            ? new List<PlayerConsumableStackData>(consumables)
-            : new List<PlayerConsumableStackData>();
+        consumableStacks = consumables as List<PlayerConsumableStackData>
+            ?? (consumables != null ? new List<PlayerConsumableStackData>(consumables) : new List<PlayerConsumableStackData>());
     }
 
     public int CurrentRunGold => currentRun == null ? 0 : currentRun.goldEarned - currentRun.goldSpent;

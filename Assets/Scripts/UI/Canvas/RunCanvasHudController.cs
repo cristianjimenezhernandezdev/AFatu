@@ -9,6 +9,7 @@ public class RunCanvasHudController : MonoBehaviour
     [Header("Panels")]
     [SerializeField] private HeroHudCanvasPanel heroHudPanel;
     [SerializeField] private DivinePowersCanvasPanel divinePowersPanel;
+    [SerializeField] private ConsumablesCanvasPanel consumablesPanel;
     [SerializeField] private CardChoiceCanvasPanel cardChoicePanel;
     [SerializeField] private ShopCanvasPanel shopPanel;
     [SerializeField] private RunSummaryCanvasPanel runSummaryPanel;
@@ -32,6 +33,7 @@ public class RunCanvasHudController : MonoBehaviour
 
         heroHudPanel?.Refresh(runManager);
         divinePowersPanel?.Refresh(runManager);
+        consumablesPanel?.Refresh(runManager);
         cardChoicePanel?.Refresh(runManager);
         shopPanel?.Refresh(runManager);
         runSummaryPanel?.Refresh(runManager);

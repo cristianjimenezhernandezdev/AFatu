@@ -39,6 +39,7 @@ public class RunManager : MonoBehaviour
     private EconomySystem economySystem;
     private ShopSystem shopSystem;
     private DivinePowerSystem divinePowerSystem;
+    private ConsumableSystem consumableSystem;
 
     private PlayerProfileData playerProfile;
     private PlayerProgressData playerProgress;
@@ -73,15 +74,19 @@ public class RunManager : MonoBehaviour
     public string SummaryMessage => summaryMessage;
     public string FeedbackMessage => feedbackMessage;
     public bool CanUseDivinePowers => currentState == RunState.ExploringSegment;
+    public bool CanUseConsumables => currentState == RunState.ExploringSegment;
     public bool IsBootstrapped => contentRepository != null;
+    public string CurrentPlayerId => localPlayerId;
     public PlayerProfileData PlayerProfile => playerProfile;
     public PlayerProgressData PlayerProgress => playerProgress;
+    public IReadOnlyList<PlayerProfileSummaryData> AvailableProfiles => progressionRepository?.LoadProfileSummaries() ?? System.Array.Empty<PlayerProfileSummaryData>();
     public IReadOnlyList<PlayerCardUnlockData> PlayerCardUnlocks => playerCardUnlocks;
     public IReadOnlyList<PlayerDivinePowerUnlockData> PlayerDivinePowerUnlocks => playerDivinePowerUnlocks;
     public IReadOnlyList<PlayerConsumableStackData> PlayerConsumables => playerConsumables;
     public IReadOnlyList<CardSeedData> AllCards => contentRepository?.GetCards() ?? System.Array.Empty<CardSeedData>();
     public IReadOnlyList<DivinePowerSeedData> AllDivinePowers => contentRepository?.GetDivinePowers() ?? System.Array.Empty<DivinePowerSeedData>();
     public IReadOnlyList<BiomeSeedData> AllBiomes => contentRepository?.GetBiomes() ?? System.Array.Empty<BiomeSeedData>();
+    public IReadOnlyList<ConsumableSeedData> AllConsumables => consumableSystem?.AvailableConsumables ?? System.Array.Empty<ConsumableSeedData>();
 
     public string GetCurrentRunResultId()
     {
@@ -175,6 +180,8 @@ public class RunManager : MonoBehaviour
     {
         if (divinePowerSystem != null && player != null && currentState == RunState.ExploringSegment)
             divinePowerSystem.Tick(Time.deltaTime, player);
+        if (consumableSystem != null && player != null && currentState == RunState.ExploringSegment)
+            consumableSystem.Tick(Time.deltaTime, player);
 
         if (!CanUseDivinePowers)
             return;
@@ -187,6 +194,14 @@ public class RunManager : MonoBehaviour
             TryActivateDivinePowerSlot(0);
         if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame)
             TryActivateDivinePowerSlot(1);
+        if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame)
+            TryUseConsumableSlot(0);
+        if (keyboard.digit4Key.wasPressedThisFrame || keyboard.numpad4Key.wasPressedThisFrame)
+            TryUseConsumableSlot(1);
+        if (keyboard.digit5Key.wasPressedThisFrame || keyboard.numpad5Key.wasPressedThisFrame)
+            TryUseConsumableSlot(2);
+        if (keyboard.digit6Key.wasPressedThisFrame || keyboard.numpad6Key.wasPressedThisFrame)
+            TryUseConsumableSlot(3);
     }
 
     public void Bootstrap()
@@ -209,17 +224,13 @@ public class RunManager : MonoBehaviour
         progressionRepository = new LocalFileProgressionRepository();
         runRepository = new InMemoryRunRepository();
 
-        playerProfile = progressionRepository.LoadProfile(localPlayerId) ?? new PlayerProfileData();
-        playerProgress = progressionRepository.LoadProgress(localPlayerId) ?? new PlayerProgressData();
-        playerCardUnlocks = progressionRepository.LoadCardUnlocks(localPlayerId)?.ToList() ?? new List<PlayerCardUnlockData>();
-        playerDivinePowerUnlocks = progressionRepository.LoadDivinePowerUnlocks(localPlayerId)?.ToList() ?? new List<PlayerDivinePowerUnlockData>();
-        playerConsumables = progressionRepository.LoadConsumableStacks(localPlayerId)?.ToList() ?? new List<PlayerConsumableStackData>();
-
-        EnsureProgressConsistency();
+        localPlayerId = progressionRepository.GetActivePlayerId();
+        LoadProfileState(localPlayerId);
 
         economySystem = new EconomySystem(playerProgress, playerConsumables);
         shopSystem = new ShopSystem(contentRepository);
         divinePowerSystem = new DivinePowerSystem(contentRepository);
+        consumableSystem = new ConsumableSystem(contentRepository, economySystem);
         segmentGenerator = new SegmentGenerator(contentRepository, runRepository);
 
         EquipUnlockedDivinePowers();
@@ -257,6 +268,7 @@ public class RunManager : MonoBehaviour
         economySystem.AttachRun(currentRun);
         divinePowerSystem.EquipPowers(equippedPowerIds);
         divinePowerSystem.OnSegmentStarted(player);
+        consumableSystem?.ResetForRun(player);
 
         playerProgress.totalRunsStarted += 1;
         SaveProgression();
@@ -273,6 +285,63 @@ public class RunManager : MonoBehaviour
             ? BalanceConfig.DefaultLongRunLength
             : BalanceConfig.DefaultShortRunLength;
         SaveProgression();
+    }
+
+    public bool TrySelectProfile(string playerId, out string feedback)
+    {
+        feedback = "No s'ha pogut carregar el perfil.";
+        if (progressionRepository == null)
+            return false;
+
+        if (IsRunInProgress())
+        {
+            feedback = "No pots canviar de perfil durant una run activa.";
+            return false;
+        }
+
+        if (!progressionRepository.SetActiveProfile(playerId))
+        {
+            feedback = "El perfil seleccionat no existeix.";
+            return false;
+        }
+
+        LoadProfileState(playerId);
+        economySystem = new EconomySystem(playerProgress, playerConsumables);
+        consumableSystem = new ConsumableSystem(contentRepository, economySystem);
+        EquipUnlockedDivinePowers();
+        feedbackMessage = string.Empty;
+        summaryTitle = string.Empty;
+        summaryMessage = string.Empty;
+        feedback = $"Perfil carregat: {playerProfile.displayName}.";
+        return true;
+    }
+
+    public bool TryCreateProfile(string displayName, out string feedback)
+    {
+        feedback = "No s'ha pogut crear el perfil.";
+        if (progressionRepository == null)
+            return false;
+
+        if (IsRunInProgress())
+        {
+            feedback = "No pots crear perfils durant una run activa.";
+            return false;
+        }
+
+        string safeName = string.IsNullOrWhiteSpace(displayName) ? string.Empty : displayName.Trim();
+        PlayerProfileData createdProfile = progressionRepository.CreateProfile(safeName);
+        if (createdProfile == null)
+            return false;
+
+        LoadProfileState(createdProfile.playerId);
+        economySystem = new EconomySystem(playerProgress, playerConsumables);
+        consumableSystem = new ConsumableSystem(contentRepository, economySystem);
+        EquipUnlockedDivinePowers();
+        feedbackMessage = string.Empty;
+        summaryTitle = string.Empty;
+        summaryMessage = string.Empty;
+        feedback = $"Perfil creat i carregat: {playerProfile.displayName}.";
+        return true;
     }
 
     public void SetPreferredHeroMode(string heroMode)
@@ -502,6 +571,48 @@ public class RunManager : MonoBehaviour
             feedbackMessage = feedback;
             runRepository.AddEvent(currentRun.runId, currentSegment != null ? currentSegment.segment.runSegmentId : 0L, "divine_power_used",
                 $"{{\"slot\":{slotIndex + 1},\"powerId\":\"{EquippedDivinePowers[slotIndex].powerId}\"}}");
+            return;
+        }
+
+        feedbackMessage = feedback;
+    }
+
+    public ConsumableSeedData GetConsumableBySlot(int slotIndex)
+    {
+        return consumableSystem?.GetConsumableAtSlot(slotIndex);
+    }
+
+    public int GetConsumableQuantity(string consumableId)
+    {
+        return consumableSystem != null ? consumableSystem.GetQuantity(consumableId) : 0;
+    }
+
+    public float GetConsumableActiveSeconds(string consumableId)
+    {
+        return consumableSystem != null ? consumableSystem.GetActiveSeconds(consumableId) : 0f;
+    }
+
+    public bool IsConsumableSkipEncounterArmed(string consumableId)
+    {
+        return consumableId == "smoke_bomb" && consumableSystem != null && consumableSystem.HasSkipEncounterCharge;
+    }
+
+    public void TryUseConsumableSlot(int slotIndex)
+    {
+        if (consumableSystem == null || player == null || currentRun == null || !CanUseConsumables)
+            return;
+
+        if (consumableSystem.TryUseSlot(slotIndex, player, out string feedback))
+        {
+            feedbackMessage = feedback;
+            SaveProgression();
+
+            ConsumableSeedData consumable = consumableSystem.GetConsumableAtSlot(slotIndex);
+            if (consumable != null && currentSegment != null)
+            {
+                runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "consumable_used",
+                    $"{{\"slot\":{slotIndex + 1},\"consumableId\":\"{consumable.consumableId}\"}}");
+            }
             return;
         }
 
@@ -854,6 +965,17 @@ public class RunManager : MonoBehaviour
         Enemy enemy = worldGrid.GetEnemyAt(position);
         if (enemy != null)
         {
+            if (consumableSystem != null && consumableSystem.TryPreventEncounter(enemy, out string feedback))
+            {
+                feedbackMessage = feedback;
+                if (currentRun != null && currentSegment != null)
+                {
+                    runRepository.AddEvent(currentRun.runId, currentSegment.segment.runSegmentId, "consumable_skip_encounter",
+                        $"{{\"enemyId\":\"{enemy.EnemyId}\",\"consumableId\":\"smoke_bomb\"}}");
+                }
+                return;
+            }
+
             CombatSystem.ResolveMelee(player, enemy);
             return;
         }
@@ -874,9 +996,23 @@ public class RunManager : MonoBehaviour
 
     private void EnsureProgressConsistency()
     {
+        if (playerProfile == null)
+            playerProfile = new PlayerProfileData();
+        if (playerProgress == null)
+            playerProgress = new PlayerProgressData();
+
+        playerProfile.playerId = localPlayerId;
+        playerProgress.playerId = localPlayerId;
+
         if (playerProgress.unlockedCardIds == null || playerProgress.unlockedCardIds.Length == 0)
         {
             playerProgress.unlockedCardIds = playerCardUnlocks.Select(item => item.cardId).ToArray();
+        }
+
+        if (playerCardUnlocks != null)
+        {
+            for (int i = 0; i < playerCardUnlocks.Count; i++)
+                playerCardUnlocks[i].playerId = localPlayerId;
         }
 
         if (playerCardUnlocks.Count == 0)
@@ -891,11 +1027,23 @@ public class RunManager : MonoBehaviour
             playerProgress.unlockedDivinePowerIds = playerDivinePowerUnlocks.Select(item => item.powerId).ToArray();
         }
 
+        if (playerDivinePowerUnlocks != null)
+        {
+            for (int i = 0; i < playerDivinePowerUnlocks.Count; i++)
+                playerDivinePowerUnlocks[i].playerId = localPlayerId;
+        }
+
         if (playerDivinePowerUnlocks.Count == 0)
         {
             playerDivinePowerUnlocks = playerProgress.unlockedDivinePowerIds
                 .Select(powerId => new PlayerDivinePowerUnlockData { playerId = localPlayerId, powerId = powerId, unlockSource = "seed" })
                 .ToList();
+        }
+
+        if (playerConsumables != null)
+        {
+            for (int i = 0; i < playerConsumables.Count; i++)
+                playerConsumables[i].playerId = localPlayerId;
         }
     }
 
@@ -916,6 +1064,12 @@ public class RunManager : MonoBehaviour
 
     private void SaveProgression()
     {
+        if (playerProfile == null || playerProgress == null || progressionRepository == null)
+            return;
+
+        playerProfile.playerId = localPlayerId;
+        playerProgress.playerId = localPlayerId;
+        playerProfile.lastSeenAtUtc = System.DateTime.UtcNow.ToString("o");
         playerProgress.totalCardsUnlocked = GetUnlockedCardIds().Count;
         playerProgress.unlockedCardIds = GetUnlockedCardIds().ToArray();
         playerProgress.unlockedDivinePowerIds = playerDivinePowerUnlocks.Select(item => item.powerId).Distinct().ToArray();
@@ -1000,6 +1154,24 @@ public class RunManager : MonoBehaviour
         template.AddComponent<EnemyGridMovement>();
         template.AddComponent<ProceduralEnemyRenderer>();
         return template;
+    }
+
+    private void LoadProfileState(string playerId)
+    {
+        localPlayerId = string.IsNullOrWhiteSpace(playerId) ? BalanceConfig.LocalPlayerId : playerId;
+        playerProfile = progressionRepository.LoadProfile(localPlayerId) ?? new PlayerProfileData { playerId = localPlayerId };
+        playerProgress = progressionRepository.LoadProgress(localPlayerId) ?? new PlayerProgressData { playerId = localPlayerId };
+        playerCardUnlocks = progressionRepository.LoadCardUnlocks(localPlayerId)?.ToList() ?? new List<PlayerCardUnlockData>();
+        playerDivinePowerUnlocks = progressionRepository.LoadDivinePowerUnlocks(localPlayerId)?.ToList() ?? new List<PlayerDivinePowerUnlockData>();
+        playerConsumables = progressionRepository.LoadConsumableStacks(localPlayerId)?.ToList() ?? new List<PlayerConsumableStackData>();
+        EnsureProgressConsistency();
+    }
+
+    private bool IsRunInProgress()
+    {
+        return currentState == RunState.ExploringSegment
+            || currentState == RunState.AwaitingShopChoice
+            || currentState == RunState.AwaitingCardChoice;
     }
 }
 

@@ -1789,3 +1789,169 @@ Aquesta iteracio es molt rellevant perquè introdueix una capa de producte que e
 - i deixa preparada la base per futures pantalles de perfil, poders, opcions o seleccio de perfils.
 
 En resum, aquesta fase marca el pas des d'un vertical slice centrat exclusivament en el loop de run cap a una estructura mes completa, on el joc ja te entrada, hub i progressio entre partides.
+
+## Actualitzacio posterior. Selector de perfil i persistencia multi-perfil
+
+Una vegada el menu principal i l'arbre de millores han estat connectats manualment a Unity, s'ha vist clarament que faltava una peça estructural perquè la capa de meta-joc fos coherent amb la BDD: el selector de perfil.
+
+Fins a aquest moment, el projecte treballava en la practica com si nomes existira un unic jugador local. Aixo era suficient per al vertical slice inicial, pero es quedava curt en el moment en que el menu principal ja mostrava progres persistent, esmeraldes i desbloquejos.
+
+La millora implementada en aquesta fase ha estat convertir el sistema de guardat local en un model multi-perfil alineat amb la BDD del projecte.
+
+### Idea central del canvi
+
+No s'ha fet una UI falsa ni un selector superficial.
+
+El que s'ha fet ha estat:
+
+- ampliar el repositori de progressio;
+- separar les dades per `playerId`;
+- permetre llistar perfils;
+- permetre seleccionar el perfil actiu;
+- i permetre crear perfils nous a partir del seed base del joc.
+
+D'aquesta manera, quan es canvia de perfil des del menu principal, el joc carrega de veritat:
+
+- el nom i preferencies del jugador;
+- les esmeraldes;
+- els desbloquejos de cartes;
+- els poders divins;
+- els biomes;
+- i els consumibles.
+
+### Relacio amb la BDD
+
+En aquest cas no ha calgut redissenyar l'esquema SQL, perquè la BDD ja estava ben plantejada per suportar multiples perfils.
+
+Les taules que sostenen aquesta funcionalitat continuen sent:
+
+- `players`
+- `player_progress`
+- `player_card_unlocks`
+- `player_divine_power_unlocks`
+- `player_consumables`
+
+El canvi important no ha estat a nivell conceptual de base de dades, sino a nivell d'implementacio del repositori local i de la capa de runtime.
+
+### Canvis tecnics principals
+
+S'han afegit models nous per representar:
+
+- la base de dades local de progressio multi-perfil;
+- i els resums de perfil que es mostren al selector.
+
+També s'ha ampliat `IProgressionRepository` per exposar:
+
+- perfil actiu;
+- llistat de perfils;
+- seleccio de perfil;
+- i creacio de perfil.
+
+El `RunManager` ha passat a carregar el `playerId` actiu real i pot reconstruir l'estat de progres quan l'usuari canvia de perfil des del menu.
+
+### Integracio amb la UI de Unity
+
+Com que la UI es continua muntant manualment dins Unity, aquesta fase no depen d'un layout tancat per codi.
+
+El que s'ha deixat preparat es:
+
+- suport per a `TMP_Dropdown` de perfils;
+- `TMP_InputField` per al nom d'un perfil nou;
+- boto de crear perfil;
+- i text de feedback per confirmar carrega o creacio.
+
+Aixo encaixa amb el treball manual que ja s'havia fet sobre el menu principal, i evita obligar a reconstruir la pantalla des de zero.
+
+### Compatibilitat i migracio
+
+Un detall important d'aquesta fase ha estat mantindre compatibilitat amb el guardat anterior.
+
+Si existia un fitxer de progres antic en format single-profile, el nou repositori el migra automaticament al model multi-perfil. Aixo evita perdre la partida local que ja s'haguera generat durant les iteracions anteriors del projecte.
+
+### Valor dins del projecte
+
+Aquest canvi te molt de pes perquè consolida la capa de meta-joc.
+
+Ara el menu principal no sols mostra un perfil actiu, sino que es converteix en un punt d'entrada real per a diferents usuaris o diferents partides persistents dins del mateix entorn local.
+
+En altres paraules:
+
+- la progressio deixa de ser una propietat global del build;
+- passa a quedar associada de manera clara a cada perfil;
+- i el joc s'apropa molt mes al comportament que s'espera d'un producte complet.
+
+## Actualitzacio posterior. Primera iteracio de consumibles jugables
+
+Despres d'ordenar el full de ruta i d'identificar quines parts de la BDD encara no s'estaven aprofitant, s'ha decidit abordar primer el sistema de consumibles.
+
+La rao d'aquesta prioritat es clara: `player_consumables` ja existia al model de dades, els rewards de cartes ja podien atorgar consumibles, i l'economia local ja en mantenia quantitats. El que faltava era convertir-los en una mecanica jugable real.
+
+### Problema detectat abans d'implementar-los
+
+Abans d'afegir l'ús en partida, s'ha detectat un problema estructural important: el `EconomySystem` estava treballant amb una copia de la llista de consumibles, no amb la mateixa col.leccio persistent que després es desa al repositori.
+
+Aixo vol dir que, si un consumible es gastava o se n'obtenia un de nou, el canvi podia no quedar correctament reflectit a l'hora de guardar la progressio.
+
+Per tant, la primera correccio d'aquesta fase ha estat assegurar que el sistema economic comparteixi la mateixa llista viva de consumibles del perfil actiu.
+
+### Sistema nou afegit
+
+S'ha creat un `ConsumableSystem` separat, amb una funcio semblant a la del sistema de poders divins pero orientat a objectes d'un sol ús o d'efecte temporal.
+
+Aquest sistema:
+
+- llegeix els consumibles actius del contingut;
+- consulta quantitats al sistema economic;
+- permet usar-los per slot;
+- manté efectes temporals actius;
+- i pot interceptar el proxim combat en el cas de la bomba de fum.
+
+### Efectes implementats en aquesta primera iteracio
+
+S'han connectat els quatre consumibles del seed:
+
+- `healing_potion`: cura immediata;
+- `speed_dose`: augment temporal de velocitat;
+- `guard_token`: augment temporal de defensa;
+- `smoke_bomb`: evita el proxim combat i consumeix la seva carrega quan s'activa l'efecte.
+
+### Integracio amb el runtime
+
+El `RunManager` s'ha ampliat per:
+
+- tickar el nou sistema durant l'exploracio;
+- respondre a hotkeys;
+- exposar informació de consumibles al HUD;
+- registrar l'ús dels consumibles com a esdeveniments de run;
+- i guardar la progressio immediatament quan es consumeix una unitat.
+
+La integracio amb el moviment de l'heroi també s'ha refinat, perquè ara el personatge pot rebre bonificacions temporals específiques de consumible, separades de les bonificacions per segment i de les dels poders divins.
+
+### Integracio amb HUD de canvas
+
+Per no deixar la mecanica amagada només darrere de tecles, s'ha preparat una capa de UI nova:
+
+- `ConsumablesCanvasPanel`
+- `ConsumableCanvasSlot`
+
+Aquesta capa està pensada per muntar-se manualment a Unity, igual que la resta del HUD de canvas, i mostra:
+
+- tecla ràpida;
+- nom;
+- quantitat;
+- estat;
+- descripcio;
+- i artwork del consumible.
+
+### Valor d'aquesta iteracio
+
+Amb aquesta fase, els consumibles deixen de ser una dada latent de la BDD i passen a ser una part real del loop de partida.
+
+No es tracta només d'afegir una tecla mes, sino de tancar millor la relacio entre:
+
+- recompenses de carta;
+- inventari persistent;
+- preparacio del perfil;
+- i decisions tactiques durant el segment.
+
+En resum, aquesta iteracio millora tant el valor de la BDD com la qualitat de la run, perquè reaprofita sistemes que ja existien en dades i els converteix en joc real.

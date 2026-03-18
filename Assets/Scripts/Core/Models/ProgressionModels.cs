@@ -11,6 +11,28 @@ public class LocalPlayerSeed
 }
 
 [Serializable]
+public class LocalProgressionDatabaseSeed
+{
+    public string activePlayerId = BalanceConfig.LocalPlayerId;
+    public PlayerProfileData[] players = Array.Empty<PlayerProfileData>();
+    public PlayerProgressData[] playerProgress = Array.Empty<PlayerProgressData>();
+    public PlayerCardUnlockData[] playerCardUnlocks = Array.Empty<PlayerCardUnlockData>();
+    public PlayerDivinePowerUnlockData[] playerDivinePowerUnlocks = Array.Empty<PlayerDivinePowerUnlockData>();
+    public PlayerConsumableStackData[] playerConsumables = Array.Empty<PlayerConsumableStackData>();
+}
+
+[Serializable]
+public class PlayerProfileSummaryData
+{
+    public string playerId;
+    public string displayName;
+    public int emeralds;
+    public int completedRuns;
+    public int highestSegmentReached;
+    public string lastSeenAtUtc;
+}
+
+[Serializable]
 public class PlayerProfileData
 {
     public string playerId = BalanceConfig.LocalPlayerId;
@@ -18,6 +40,8 @@ public class PlayerProfileData
     public string preferredLanguage = "ca";
     public int preferredRunLength = BalanceConfig.DefaultShortRunLength;
     public string selectedHeroMode = BalanceConfig.DefaultHeroMode;
+    public string createdAtUtc = string.Empty;
+    public string lastSeenAtUtc = string.Empty;
 }
 
 [Serializable]

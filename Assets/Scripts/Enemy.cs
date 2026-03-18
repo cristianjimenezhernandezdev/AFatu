@@ -81,6 +81,17 @@ public class Enemy : MonoBehaviour
             Die();
     }
 
+    public void DespawnWithoutReward()
+    {
+        if (isDead)
+            return;
+
+        isDead = true;
+        if (WorldGrid.Instance != null)
+            WorldGrid.Instance.RemoveEnemy(this);
+        Destroy(gameObject);
+    }
+
     private void Die()
     {
         if (isDead)

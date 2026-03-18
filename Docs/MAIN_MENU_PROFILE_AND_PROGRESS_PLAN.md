@@ -660,3 +660,19 @@ Amb aquesta capa, el projecte ja te una entrada real de meta-joc:
 - el perfil actiu i les seves preferencies es fan visibles;
 - es poden preparar opcions abans de jugar;
 - i l'arbre de millores deixa de ser una idea de disseny i passa a ser una pantalla funcional.
+
+## Actualitzacio posterior. Selector de perfil i guardat multi-perfil
+
+Despres de tenir el menu principal i l'arbre de millores funcionant a Unity, la necessitat seguent ha estat donar suport real a multiples perfils.
+
+La decisio presa ha estat no construir un sistema paral.lel, sino ampliar el repositori local perquè reflecteixi millor el model de la BDD:
+
+- multiples files logiques de `players`;
+- multiples entrades de `player_progress`;
+- i desbloquejos separats per `playerId`.
+
+Aquesta ampliacio permet que el menu principal mostri una llista de perfils, carregui el perfil seleccionat i cree perfils nous sense trencar el flux ja implementat de run i meta-progres.
+
+Per al muntatge manual a Unity i el detall tecnic complet d'aquesta fase, consulta:
+
+- `Docs/PROFILE_SELECTOR_SAVE_SYSTEM_IMPLEMENTATION.md`

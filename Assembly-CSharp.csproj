@@ -52,7 +52,9 @@
     <Compile Include="Assets\Scripts\UI\Canvas\RunCanvasHudController.cs" />
     <Compile Include="Assets\Scripts\Systems\SegmentGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Canvas\CardArtSpriteCache.cs" />
+    <Compile Include="Assets\Scripts\Systems\ConsumableSystem.cs" />
     <Compile Include="Assets\Scripts\UI\Canvas\ShopOfferCanvasSlot.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\ConsumablesCanvasPanel.cs" />
     <Compile Include="Assets\Scripts\ProceduralPlayerRenderer.cs" />
     <Compile Include="Assets\Scripts\ProceduralChestRenderer.cs" />
     <Compile Include="Assets\Scripts\UI\Canvas\CardChoiceCanvasPanel.cs" />
@@ -64,6 +66,7 @@
     <Compile Include="Assets\Scripts\PlayerGridMovement.cs" />
     <Compile Include="Assets\Scripts\Enemy.cs" />
     <Compile Include="Assets\Scripts\ProceduralEnemyRenderer.cs" />
+    <Compile Include="Assets\Scripts\UI\Canvas\ConsumableCanvasSlot.cs" />
     <Compile Include="Assets\Scripts\Core\Balance\BalanceConfig.cs" />
     <Compile Include="Assets\Scripts\UI\PlayerWorldOverlayPanel.cs" />
     <Compile Include="Assets\Scripts\Data\RepositoryInterfaces.cs" />
